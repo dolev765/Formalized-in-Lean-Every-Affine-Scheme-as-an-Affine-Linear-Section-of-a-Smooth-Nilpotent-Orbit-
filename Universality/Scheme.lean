@@ -1463,8 +1463,7 @@ theorem ofAlgebraDiagram_laws {S : Type u} [CommRing S] [Algebra R S] :
     exact polynomialInput_comp F P α β x hx
 
 namespace CircuitDiagram
-variable {V Q : J → Type u} [∀ j, Fintype (V j)] [∀ j, Fintype (Q j)]
-  [∀ j, DecidableEq (V j)]
+variable {V Q : J → Type u} [∀ j, DecidableEq (V j)]
 variable (D : CircuitDiagram (J := J) (R := R) (V := V) (Q := Q))
 variable (h : ∀ (S : Type u) [CommRing S] [Algebra R S], D.Laws (S := S))
 

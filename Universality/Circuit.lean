@@ -60,6 +60,7 @@ variable {R S : Type*} [CommRing R] [CommRing S] [Algebra R S]
 variable {W G E : Type*} [Fintype W] [DecidableEq W] [Fintype G] [DecidableEq G]
 abbrev Index (W G : Type*) := W ⊕ (Fin 2 × G)
 
+omit [DecidableEq W] [DecidableEq G] in
 @[simp] theorem card_index : Fintype.card (Index W G) =
     Fintype.card W + 2 * Fintype.card G := by
   simp [Index]
@@ -79,16 +80,18 @@ def assemble (C : GateSystem R W G E) (w : W → S) :
 def wires (A : Matrix (Index W G) (Index W G) S) : W → S :=
   fun i => A (Sum.inl i) (Sum.inl i)
 
+omit [CommRing R] [Algebra R S] [Fintype W] [Fintype G] in
 @[simp] theorem wires_assemble (C : GateSystem R W G E) (w : W → S) :
     wires (C.assemble w) = w := by
   funext i
   simp [wires, assemble]
 
+omit [CommRing R] [Algebra R S] in
 @[simp] theorem assemble_square_gate (C : GateSystem R W G E) (w : W → S) (g : G) :
     (C.assemble w * C.assemble w) (Sum.inr (0,g)) (Sum.inr (0,g)) =
       w (C.left g) * w (C.right g) := by
   simp [assemble, Matrix.fromBlocks_multiply, ← Matrix.blockDiagonal_mul,
-    gateBlock_square, Matrix.blockDiagonal_apply_eq]
+    gateBlock_square]
 
 /-- Original scalar gate equations, before matrix compilation. -/
 def Satisfies (C : GateSystem R W G E) (w : W → S) : Prop :=
@@ -190,9 +193,11 @@ def subterms : ArithmeticExpr R V → Finset (ArithmeticExpr R V)
   | .add a b => insert (.add a b) (a.subterms ∪ b.subterms)
   | .mul a b => insert (.mul a b) (a.subterms ∪ b.subterms)
 
+omit [CommRing R] in
 @[simp] theorem mem_subterms (t : ArithmeticExpr R V) : t ∈ t.subterms := by
   cases t <;> simp [subterms]
 
+omit [CommRing R] in
 theorem subterms_trans {a b : ArithmeticExpr R V} (h : a ∈ b.subterms) :
     a.subterms ⊆ b.subterms := by
   induction b with
@@ -439,7 +444,7 @@ def residualLinear (C : GateSystem R W G E) :
     · change p.1 + q.1 - C.assembleLinear (wiresLinear (p.1 + q.1)) = _
       rw [map_add, map_add]
       simp only [assembleLinear, wiresLinear, LinearMap.coe_mk, AddHom.coe_mk,
-        Prod.fst_add, Prod.fst]
+        Prod.fst_add]
       abel
     · apply Prod.ext
       · funext j
@@ -454,7 +459,7 @@ def residualLinear (C : GateSystem R W G E) :
       simp [assembleLinear, wiresLinear, smul_sub]
     · apply Prod.ext
       · funext j
-        simp [wires, Finset.mul_sum, mul_left_comm, mul_assoc]
+        simp [wires, Finset.mul_sum, mul_left_comm]
       · funext g
         simp [wires, mul_sub]
 
@@ -464,15 +469,14 @@ def residualAffine (C : GateSystem R W G E) :
   C.residualLinear.toAffineMap + AffineMap.const S (Ambient W G S)
     (0, (fun q => algebraMap R S (C.equations q).constant), 0)
 
+omit [Fintype G] in
 theorem residualAffine_eq_zero_iff (C : GateSystem R W G E) (p : Ambient W G S) :
     C.residualAffine (S := S) p = 0 ↔ C.LinearSection p.1 p.2 := by
   change (p.1 - C.assemble (wires p.1),
     ((fun q => ∑ i, algebraMap R S ((C.equations q).coeff i) * wires p.1 i),
      (fun g => wires p.1 (C.output g) - p.2 (Sum.inr (0,g)) (Sum.inr (0,g))))) +
       (0, (fun q => algebraMap R S (C.equations q).constant), 0) = 0 ↔ _
-  simp only [
-    residualLinear, LinearMap.coe_mk, AddHom.coe_mk, AffineMap.const_apply,
-    Prod.mk_add_mk, add_zero, Prod.mk.injEq, Prod.mk_eq_zero, sub_eq_zero]
+  simp only [Prod.mk_add_mk, add_zero, Prod.mk_eq_zero, sub_eq_zero]
   simp only [LinearSection, AffineEquation.eval, funext_iff, Pi.add_apply,
     Pi.zero_apply, add_comm, sub_eq_zero]
 
@@ -846,6 +850,7 @@ def ofPolynomials (f : ∀ j, Q j → MvPolynomial (V j) R)
 abbrev Wire (i : J) := Coordinate (fun j => (D.presentation j).Wire) i
 instance wireDecidableEq (i : J) : DecidableEq (D.Wire i) := Classical.decEq _
 
+omit [(j : J) → Fintype (V j)] [(j : J) → Fintype (Q j)] in
 theorem index_card_pos (i : J) : 0 < Fintype.card (GateSystem.Index (D.Wire i) (D.Wire i)) := by
   apply Fintype.card_pos_iff.mpr
   exact ⟨Sum.inl ⟨i, 𝟙 i, (D.presentation i).zeroWire⟩⟩
@@ -873,6 +878,7 @@ def gates (i : J) : GateSystem R (D.Wire i) (D.Wire i) (D.Row i) := by
           (D.copy (c.2.1 ≫ c.2.2.2.1) (D.variableWire c.2.2.1 c.2.2.2.2))).sub
         (AffineEquation.coordinate (D.copy c.2.1 (D.lift c.2.2.2.1 c.2.2.2.2)))) }
 
+omit [(j : J) → Fintype (V j)] [(j : J) → Fintype (Q j)] in
 theorem satisfies_iff (i : J) (w : D.Wire i → S) :
     (D.gates i).Satisfies w ↔
       (∀ j (α : i ⟶ j), (D.presentation j).gates.Satisfies (D.slice α w)) ∧
@@ -909,6 +915,7 @@ structure Laws : Prop where
     (∀ q, ((D.presentation i).roots q).eval x = 0) →
     D.inputMap (α ≫ β) x = D.inputMap β (D.inputMap α x)
 
+omit [(j : J) → Fintype (V j)] [(j : J) → Fintype (Q j)] in
 theorem extend_satisfies (h : D.Laws (S := S)) (i : J) (x : V i → S)
     (hx : ∀ q, ((D.presentation i).roots q).eval x = 0) :
     (D.gates i).Satisfies (D.extend i x) := by
@@ -921,11 +928,13 @@ theorem extend_satisfies (h : D.Laws (S := S)) (i : J) (x : V i → S)
     change D.inputMap (β ≫ α) x v = D.inputMap α (D.inputMap β x) v
     rw [h.composition β α x hx]
 
+omit [(j : J) → Fintype (V j)] [(j : J) → Fintype (Q j)] in
 theorem input_satisfies (i : J) (w : D.Wire i → S) (hw : (D.gates i).Satisfies w) :
     ∀ q, ((D.presentation i).roots q).eval (D.input i w) = 0 := by
   classical
   exact (D.presentation i).input_satisfies _ (((D.satisfies_iff _ _).mp hw).1 i (𝟙 i))
 
+omit [(j : J) → Fintype (V j)] [(j : J) → Fintype (Q j)] in
 /-- The identity-arrow inputs force every copied wire, including every auxiliary wire. -/
 theorem wire_forced (i : J) (w : D.Wire i → S) (hw : (D.gates i).Satisfies w) :
     D.extend i (D.input i w) = w := by
@@ -954,6 +963,7 @@ def solutionEquiv (h : D.Laws (S := S)) (i : J) :
     exact h.identity i x.val x.property
   right_inv w := Subtype.ext (D.wire_forced i w.val w.property)
 
+omit [Fintype J] [(i j : J) → Fintype (i ⟶ j)] [(j : J) → Fintype (V j)] [(j : J) → Fintype (Q j)] in
 theorem projection_extend (h : D.Laws (S := S)) {i j} (α : i ⟶ j) (x : V i → S)
     (hx : ∀ q, ((D.presentation i).roots q).eval x = 0) :
     projection S (fun j => (D.presentation j).Wire) α (D.extend i x) =
@@ -962,6 +972,7 @@ theorem projection_extend (h : D.Laws (S := S)) {i j} (α : i ⟶ j) (x : V i �
   change t.val.eval (D.inputMap (α ≫ β) x) = t.val.eval (D.inputMap β (D.inputMap α x))
   rw [h.composition α β x hx]
 
+omit [(j : J) → Fintype (V j)] [(j : J) → Fintype (Q j)] in
 theorem projection_satisfies {i j} (α : i ⟶ j) (w : D.Wire i → S)
     (hw : (D.gates i).Satisfies w) :
     (D.gates j).Satisfies (projection S (fun j => (D.presentation j).Wire) α w) := by
@@ -975,6 +986,7 @@ theorem projection_satisfies {i j} (α : i ⟶ j) (w : D.Wire i → S)
     simpa only [projection, LinearMap.coe_mk, AddHom.coe_mk, copy, Category.assoc]
       using ht k (α ≫ β) l γ v
 
+omit [(j : J) → Fintype (V j)] [(j : J) → Fintype (Q j)] in
 theorem input_projection {i j} (α : i ⟶ j) (w : D.Wire i → S)
     (hw : (D.gates i).Satisfies w) :
     D.input j (projection S (fun j => (D.presentation j).Wire) α w) =
@@ -991,10 +1003,12 @@ theorem input_projection {i j} (α : i ⟶ j) (w : D.Wire i → S)
 def wireMap {i j} (α : i ⟶ j) : D.Wire j → D.Wire i :=
   fun c => D.copy (α ≫ c.2.1) c.2.2
 
+omit [Fintype J] [(i j : J) → Fintype (i ⟶ j)] [(j : J) → Fintype (V j)] [(j : J) → Fintype (Q j)] in
 @[simp] theorem wireMap_id (i : J) : D.wireMap (𝟙 i) = id := by
   funext ⟨j, α, t⟩
   simp [wireMap, copy]
 
+omit [Fintype J] [(i j : J) → Fintype (i ⟶ j)] [(j : J) → Fintype (V j)] [(j : J) → Fintype (Q j)] in
 @[simp] theorem wireMap_comp {i j k} (α : i ⟶ j) (β : j ⟶ k) :
     D.wireMap α ∘ D.wireMap β = D.wireMap (α ≫ β) := by
   funext ⟨l, γ, t⟩
@@ -1007,17 +1021,23 @@ def matrixMap {i j} (α : i ⟶ j) :
       Matrix (GateSystem.Index (D.Wire j) (D.Wire j)) (GateSystem.Index (D.Wire j) (D.Wire j)) S :=
   GateSystem.matrixPullback (D.wireMap α) (D.wireMap α)
 
+omit [Algebra R S] [Fintype J] [(i j : J) → Fintype (i ⟶ j)]
+  [(j : J) → Fintype (V j)] [(j : J) → Fintype (Q j)] in
 @[simp] theorem matrixMap_id (i : J) : D.matrixMap (S := S) (𝟙 i) = LinearMap.id := by
   simp [matrixMap, GateSystem.matrixPullback_id]
 
+omit [Algebra R S] [Fintype J] [(i j : J) → Fintype (i ⟶ j)]
+  [(j : J) → Fintype (V j)] [(j : J) → Fintype (Q j)] in
 @[simp] theorem matrixMap_comp {i j k} (α : i ⟶ j) (β : j ⟶ k) :
     (D.matrixMap (S := S) β).comp (D.matrixMap α) = D.matrixMap (α ≫ β) := by
   rw [matrixMap, matrixMap, GateSystem.matrixPullback_comp, wireMap_comp]
   rfl
 
+omit [Fintype J] [(i j : J) → Fintype (i ⟶ j)] [Algebra R S] [(j : J) → Fintype (V j)] [(j : J) → Fintype (Q j)] in
 @[simp] theorem matrixMap_one {i j} (α : i ⟶ j) : D.matrixMap (S := S) α 1 = 1 :=
   GateSystem.matrixPullback_one _ _
 
+omit [Fintype J] [(i j : J) → Fintype (i ⟶ j)] [Algebra R S] [(j : J) → Fintype (V j)] [(j : J) → Fintype (Q j)] in
 theorem matrixMap_assemble {i j} (α : i ⟶ j) (w : D.Wire i → S) :
     D.matrixMap α ((D.gates i).assemble w) =
       (D.gates j).assemble (projection S (fun j => (D.presentation j).Wire) α w) := by
@@ -1025,6 +1045,7 @@ theorem matrixMap_assemble {i j} (α : i ⟶ j) (w : D.Wire i → S) :
   exact GateSystem.matrixPullback_assemble (D.gates i) (D.gates j)
     (D.wireMap α) (D.wireMap α) (fun _ => rfl) (fun _ => rfl) w
 
+omit [Algebra R S] [(j : J) → Fintype (V j)] [(j : J) → Fintype (Q j)] in
 theorem matrixMap_assemble_square {i j} (α : i ⟶ j) (w : D.Wire i → S) :
     D.matrixMap α ((D.gates i).assemble w * (D.gates i).assemble w) =
       (D.gates j).assemble (projection S (fun j => (D.presentation j).Wire) α w) *

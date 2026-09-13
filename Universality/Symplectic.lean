@@ -54,15 +54,18 @@ theorem comm_swap (X Y : Matrix n n k) : comm X Y = -comm Y X := by
   unfold comm
   abel
 
+omit [DecidableEq n] in
 theorem traceForm_wellDefined_left (Z X X' Y : Matrix n n k)
     (h : comm X Z = comm X' Z) : traceForm Z X Y = traceForm Z X' Y := by
   rw [traceForm_eq, traceForm_eq, comm_swap Z X, comm_swap Z X', h]
 
+omit [DecidableEq n] in
 theorem traceForm_wellDefined_right (Z X Y Y' : Matrix n n k)
     (h : comm Y Z = comm Y' Z) : traceForm Z X Y = traceForm Z X Y' := by
   rw [traceForm_swap Z X Y, traceForm_swap Z X Y']
   rw [traceForm_wellDefined_left Z Y Y' X h]
 
+omit [DecidableEq n] in
 theorem traceForm_radical (Z X : Matrix n n k) :
     (∀ Y, traceForm Z X Y = 0) ↔ comm X Z = 0 := by
   constructor
@@ -187,6 +190,7 @@ theorem comm_jacobi (X Y W : Matrix n n k) :
   simp only [comm, mul_sub, sub_mul, Matrix.mul_assoc]
   abel
 
+omit [DecidableEq n] in
 /-- The Jacobi trace identity used in the invariant-form calculation of `dω`.
 This is a matrix identity, not a definition of the scheme exterior derivative. -/
 theorem traceForm_jacobi (Z X Y W : Matrix n n k) :
@@ -276,6 +280,7 @@ omit [DecidableEq n] in
 theorem lowerLie_mul (A B : Matrix n n k) : lowerLie A * lowerLie B = 0 := by
   simp [lowerLie, Matrix.fromBlocks_multiply]
 
+omit [DecidableEq n] in
 theorem lowerLie_abelian (A B : Matrix n n k) : comm (lowerLie A) (lowerLie B) = 0 := by
   simp [comm, lowerLie_mul]
 
@@ -754,6 +759,7 @@ theorem trace_submatrix (X : Matrix n n S) (e : Equiv.Perm n) :
     Matrix.trace (X.submatrix e e) = Matrix.trace X := by
   exact Equiv.sum_comp e (fun i => X i i)
 
+omit [DecidableEq n] in
 theorem traceForm_submatrix (Z X Y : Matrix n n S) (e : Equiv.Perm n) :
     Symplectic.traceForm (Z.submatrix e e) (X.submatrix e e) (Y.submatrix e e) =
       Symplectic.traceForm Z X Y := by
@@ -814,6 +820,7 @@ noncomputable def coordinatePartial (i : I) : Derivation R S S :=
   simp [Module.Basis.coord_apply, Finsupp.single_apply, eq_comm]
 
 include M in
+omit [DecidableEq I] in
 theorem derivation_ext_coordinates (D E : Derivation R S S)
     (h : ∀ i : I, D (coordinate (R := R) (S := S) i) = E (coordinate (R := R) (S := S) i)) : D = E := by
   have hl : D.liftKaehlerDifferential = E.liftKaehlerDifferential := by
@@ -828,6 +835,7 @@ theorem derivation_ext_coordinates (D E : Derivation R S S)
 noncomputable def coordinateDerivation (v : I → S) : Derivation R S S :=
   ((localizedDifferentialBasis (S := S) M).constr S v).compDer (KaehlerDifferential.D R S)
 
+omit [DecidableEq I] in
 @[simp] theorem coordinateDerivation_coordinate (v : I → S) (i : I) :
     coordinateDerivation M v (coordinate (R := R) (S := S) i) = v i := by
   change (localizedDifferentialBasis (S := S) M).constr S v

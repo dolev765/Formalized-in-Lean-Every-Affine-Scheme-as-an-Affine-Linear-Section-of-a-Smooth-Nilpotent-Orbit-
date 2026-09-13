@@ -19,9 +19,11 @@ variable {S n : Type*} [CommRing S] [Fintype n] [DecidableEq n]
 def InFixedChart (Z : Matrix (n ⊕ n) (n ⊕ n) S) : Prop :=
   Z.toBlocks₁₂ = 1 ∧ Z.toBlocks₂₂ = -Z.toBlocks₁₁
 
+omit [Fintype n] in
 theorem iota_inFixedChart (A B : Matrix n n S) : InFixedChart (iota A B) := by
   simp [InFixedChart, iota]
 
+omit [Fintype n] in
 theorem fixedChart_reconstruct (Z : Matrix (n ⊕ n) (n ⊕ n) S)
     (h : InFixedChart Z) : iota Z.toBlocks₁₁ (-Z.toBlocks₂₁) = Z := by
   unfold iota
@@ -48,6 +50,7 @@ def fixedChartAffine : Matrix (n ⊕ n) (n ⊕ n) S →ᵃ[S]
     (Matrix n n S × Matrix n n S) :=
   chartResidualLinear.toAffineMap + AffineMap.const S _ (-1, 0)
 
+omit [Fintype n] in
 theorem fixedChartAffine_eq_zero_iff (Z : Matrix (n ⊕ n) (n ⊕ n) S) :
     fixedChartAffine Z = 0 ↔ InFixedChart Z := by
   change (Z.toBlocks₁₂ + -1, Z.toBlocks₂₂ + Z.toBlocks₁₁ + 0) = (0, 0) ↔ _
@@ -87,6 +90,7 @@ def orbitAffineConstraints (C : GateSystem R W G E) :
   (fixedChartAffine (S := S)).prod
     ((C.residualAffine (S := S)).comp chartExtractLinear.toAffineMap)
 
+omit [Fintype G] in
 theorem orbitAffineConstraints_eq_zero_iff (C : GateSystem R W G E)
     (Z : Matrix (Index W G ⊕ Index W G) (Index W G ⊕ Index W G) S) :
     C.orbitAffineConstraints (S := S) Z = 0 ↔
@@ -174,18 +178,21 @@ def decode {S : Type*} (x : MatrixCoord W G → S) : Ambient W G S :=
 def encode {S : Type*} (p : Ambient W G S) : MatrixCoord W G → S :=
   Sum.elim (fun ij => p.1 ij.1 ij.2) (fun ij => p.2 ij.1 ij.2)
 
+omit [Fintype W] [DecidableEq W] [Fintype G] [DecidableEq G] in
 @[simp] theorem decode_encode {S : Type*} (p : Ambient W G S) : decode (encode p) = p := rfl
+omit [Fintype W] [DecidableEq W] [Fintype G] [DecidableEq G] in
 @[simp] theorem encode_decode {S : Type*} (x : MatrixCoord W G → S) : encode (decode x) = x := by
   funext ij
   cases ij <;> rfl
 
 variable {S T : Type*} [CommRing S] [CommRing T] [Algebra R S] [Algebra R T]
 
+omit [Fintype W] [Fintype G] in
 theorem assemble_map (C : GateSystem R W G E) (φ : S →ₐ[R] T) (w : W → S) :
     (C.assemble w).map φ = C.assemble (fun i => φ (w i)) := by
   ext i j
   rcases i with i | ⟨i,g⟩ <;> rcases j with j | ⟨j,h⟩
-  · by_cases hij : i = j <;> simp [assemble, Matrix.map_apply, Matrix.diagonal_apply, hij]
+  · by_cases hij : i = j <;> simp [assemble, Matrix.map_apply, hij]
   · simp [assemble, Matrix.map_apply]
   · simp [assemble, Matrix.map_apply]
   · fin_cases i <;> fin_cases j <;> by_cases hgh : g = h <;>
@@ -420,6 +427,7 @@ def orbitMatrix {S : Type*} (x : OrbitCoord W G → S) :
 def orbitExtract {S : Type*} [Neg S] (x : OrbitCoord W G → S) : Ambient W G S :=
   ((orbitMatrix x).toBlocks₁₁, -(orbitMatrix x).toBlocks₂₁)
 
+omit [Fintype W] [Fintype G] in
 theorem orbitExtract_iota {S : Type*} [CommRing S]
     (A B : Matrix (Index W G) (Index W G) S) :
     orbitExtract (fun ij => iota A B ij.1 ij.2) = (A,B) := by
@@ -435,6 +443,7 @@ def extractionPolynomial : MvPolynomial (MatrixCoord W G) R →ₐ[R]
 
 variable {S : Type*} [CommRing S] [Algebra R S]
 
+omit [Fintype W] [DecidableEq W] [Fintype G] [DecidableEq G] in
 theorem extractionPolynomial_eval (x : OrbitCoord W G → S)
     (p : MvPolynomial (MatrixCoord W G) R) :
     aeval x (extractionPolynomial p) = aeval (encode (orbitExtract x)) p := by
@@ -683,6 +692,7 @@ def orbitAffinePolynomials (C : GateSystem R W G E) :
         (Sum.elim (fun q => (C.equations q).eval (wires A))
           (fun g => wires A (C.output g) - B (Sum.inr (0,g)) (Sum.inr (0,g))))))
 
+omit [Fintype G] in
 theorem orbitAffinePolynomials_satisfied_iff {S : Type*} [CommRing S] [Algebra R S]
     (C : GateSystem R W G E) (x : OrbitCoord W G → S) :
     (∀ q, eval₂ (algebraMap R S) x (C.orbitAffinePolynomials q) = 0) ↔
@@ -843,16 +853,18 @@ theorem sectionToOrbit_ambient (C : GateSystem R W G E) :
         Spec.map (CommRingCat.ofHom φ))
     C.sectionCellCoordinates_comp_cellCoordinateMap
 
+omit [Fintype W] [Fintype G] in
 theorem assemble_totalDegree_le {V : Type u} (C : GateSystem R W G E)
     (w : W → MvPolynomial V R) (hw : ∀ i, (w i).totalDegree ≤ 1)
     (i j : Index W G) : (C.assemble w i j).totalDegree ≤ 1 := by
   rcases i with i | ⟨i,g⟩ <;> rcases j with j | ⟨j,h⟩
-  · by_cases hij : i = j <;> simp [assemble, Matrix.diagonal_apply, hij, hw]
+  · by_cases hij : i = j <;> simp [assemble, hij, hw]
   · simp [assemble]
   · simp [assemble]
   · fin_cases i <;> fin_cases j <;> by_cases hgh : g = h <;>
       simp [assemble, Matrix.blockDiagonal_apply, gateBlock, hgh, hw]
 
+omit [DecidableEq W] in
 theorem affineEquation_totalDegree_le {V : Type u} (e : AffineEquation R W)
     (w : W → MvPolynomial V R) (hw : ∀ i, (w i).totalDegree ≤ 1) :
     (e.eval w).totalDegree ≤ 1 := by
@@ -864,6 +876,7 @@ theorem affineEquation_totalDegree_le {V : Type u} (e : AffineEquation R W)
     intro i _
     exact (totalDegree_mul _ _).trans (by simpa [MvPolynomial.algebraMap_eq] using hw i)
 
+omit [Fintype G] in
 /-- Every advertised affine equation is a literal polynomial of total degree at most one. -/
 theorem orbitAffinePolynomials_totalDegree [Nontrivial R] (C : GateSystem R W G E)
     (q : OrbitAffineEquation W G E) : (C.orbitAffinePolynomials q).totalDegree ≤ 1 := by
@@ -875,8 +888,8 @@ theorem orbitAffinePolynomials_totalDegree [Nontrivial R] (C : GateSystem R W G 
     simp [B, orbitExtract, orbitMatrix, Matrix.toBlocks₂₁]
   have hw (i : W) : (wires A i).totalDegree ≤ 1 := hA _ _
   rcases q with ij | ij | ij | e | g
-  · exact (totalDegree_sub _ _).trans (by simp [orbitAffinePolynomials])
-  · exact (totalDegree_add _ _).trans (by simp [orbitAffinePolynomials])
+  · exact (totalDegree_sub _ _).trans (by simp)
+  · exact (totalDegree_add _ _).trans (by simp)
   · change (A ij.1 ij.2 - C.assemble (wires A) ij.1 ij.2).totalDegree ≤ 1
     exact (totalDegree_sub _ _).trans (max_le (hA _ _) (C.assemble_totalDegree_le _ hw _ _))
   · exact affineEquation_totalDegree_le (C.equations e) (wires A) hw
@@ -942,6 +955,7 @@ namespace GateSystem
 variable {R S W G E : Type u} [CommRing R] [CommRing S] [Algebra R S]
   [Fintype W] [DecidableEq W] [Fintype G] [DecidableEq G] [Fintype E]
 
+omit [Fintype E] in
 /-- Exact algebraic feasibility equivalence for the affine orbit section. -/
 theorem feasibility_reduction (C : GateSystem R W G E) :
     (∃ w : W → S, C.Satisfies w) ↔
@@ -955,34 +969,37 @@ theorem feasibility_reduction (C : GateSystem R W G E) :
     let w := C.orbitSolutionEquiv.symm ⟨z, (C.orbitSection_iff z).mpr hz⟩
     exact ⟨w.val, w.property⟩
 
+omit [DecidableEq W] [DecidableEq G] in
 /-- The compiler uses N=s+2m, and its literal ambient matrix has exactly 4N² entries. -/
 theorem orbit_variable_count : Fintype.card (OrbitCoord W G) =
     4 * (Fintype.card W + 2 * Fintype.card G) ^ 2 := by
-  simp only [OrbitCoord, Fintype.card_prod, Fintype.card_sum, card_index, Fintype.card_fin]
+  simp only [OrbitCoord, Fintype.card_prod, Fintype.card_sum, Fintype.card_fin]
   ring
 
+omit [DecidableEq W] [DecidableEq G] in
 /-- Exact count of the affine rows: two chart blocks, one wiring block, input rows and gates. -/
 theorem orbit_affine_equation_count : Fintype.card (OrbitAffineEquation W G E) =
     3 * (Fintype.card W + 2 * Fintype.card G) ^ 2 + Fintype.card E + Fintype.card G := by
-  simp only [OrbitAffineEquation, Fintype.card_sum, Fintype.card_prod, card_index, Fintype.card_fin]
+  simp only [OrbitAffineEquation, Fintype.card_sum, Fintype.card_prod, Fintype.card_fin]
   ring
 
+omit [DecidableEq W] [DecidableEq G] in
 /-- The independent graph equations add N² more rows. -/
 theorem orbit_total_equation_count : Fintype.card (OrbitEquation W G E) =
     4 * (Fintype.card W + 2 * Fintype.card G) ^ 2 + Fintype.card E + Fintype.card G := by
-  simp only [OrbitEquation, MatrixEquation, Fintype.card_sum, Fintype.card_prod, card_index, Fintype.card_fin]
+  simp only [OrbitEquation, MatrixEquation, Fintype.card_sum, Fintype.card_prod, Fintype.card_fin]
   ring
 
+omit [CommRing R] [Algebra R S] [Fintype W] [Fintype G] [Fintype E] in
 /-- Each wiring entry is zero or a copy of one input wire; no scalar arithmetic is hidden here. -/
 theorem assemble_entry_zero_or_wire (C : GateSystem R W G E) (w : W → S)
     (i j : Index W G) : C.assemble w i j = 0 ∨ ∃ a, C.assemble w i j = w a := by
-  have hw (a : W) : w a = 0 ∨ ∃ b, w a = w b := Or.inr ⟨a, rfl⟩
   rcases i with i | ⟨i,g⟩ <;> rcases j with j | ⟨j,h⟩
-  · by_cases hij : i = j <;> simp [assemble, Matrix.diagonal_apply, hij, hw]
+  · by_cases hij : i = j <;> simp [assemble, hij]
   · simp [assemble]
   · simp [assemble]
   · fin_cases i <;> fin_cases j <;> by_cases hgh : g = h <;>
-      simp [assemble, Matrix.blockDiagonal_apply, gateBlock, hgh, hw]
+      simp [assemble, Matrix.blockDiagonal_apply, gateBlock, hgh]
 
 theorem polynomial_support_card_add {V : Type u} (p q : MvPolynomial V R) :
     (p + q).support.card ≤ p.support.card + q.support.card := by
@@ -1013,6 +1030,7 @@ theorem polynomial_support_card_sum {V I : Type u} (s : Finset I) (p : I → MvP
     simp only [Finset.sum_insert hi]
     exact (polynomial_support_card_add _ _).trans (Nat.add_le_add_left ih _)
 
+omit [Fintype G] [Fintype E] in
 /-- Input rows retain their original coefficients literally. The indicator sum
 also describes cancellation without assuming distinct monomials. -/
 theorem orbitAffinePolynomials_input_coeff (C : GateSystem R W G E) (e : E)
@@ -1025,6 +1043,7 @@ theorem orbitAffinePolynomials_input_coeff (C : GateSystem R W G E) (e : E)
   simp [orbitAffinePolynomials, AffineEquation.eval, wires, orbitExtract, orbitMatrix,
     Matrix.toBlocks₁₁, MvPolynomial.coeff_sum, MvPolynomial.coeff_X', MvPolynomial.coeff_C, eq_comm]
 
+omit [Fintype G] [Fintype E] in
 /-- Each literal affine output row has at most `|W|+2` nonzero monomials.
 This counts the actual polynomial after duplicate monomials cancel. -/
 theorem orbitAffinePolynomials_support_card [Nontrivial R] (C : GateSystem R W G E)
@@ -1102,6 +1121,7 @@ theorem coefficient_X_add_distinct {V : Type u} (a b : V) (hab : a ≠ b) (d : V
     simp [ha,hb]
   · split_ifs <;> simp_all
 
+omit [Fintype G] [Fintype E] in
 /-- Injective wire coordinates prevent coefficient aggregation in original input rows. -/
 theorem orbitAffinePolynomials_input_provenance (C : GateSystem R W G E) (e : E)
     (d : OrbitCoord W G →₀ ℕ) :
@@ -1125,6 +1145,7 @@ theorem orbitAffinePolynomials_input_provenance (C : GateSystem R W G E) (e : E)
       simp [show Finsupp.single ((Sum.inl (Sum.inl i), Sum.inl (Sum.inl i)) : OrbitCoord W G) 1 ≠ d
         from fun h => hi ⟨i,h⟩]
 
+omit [Fintype G] [Fintype E] in
 /-- Every coefficient is either `0,1,-1` or an unchanged original affine
 coefficient/constant. The proof includes duplicate-wire cancellation. -/
 theorem orbitAffinePolynomials_coefficient_provenance (C : GateSystem R W G E)
@@ -1167,6 +1188,7 @@ theorem orbitAffinePolynomials_coefficient_provenance (C : GateSystem R W G E)
     simpa [orbitAffinePolynomials, wires, orbitExtract, Matrix.toBlocks₁₁,
       Matrix.toBlocks₂₁, orbitMatrix, sub_neg_eq_add] using h.imp_right Or.inl
 
+omit [Fintype G] [Fintype E] in
 /-- A coefficient-size bound for any chosen scalar encoding measure. -/
 theorem orbitAffinePolynomials_coefficient_size (C : GateSystem R W G E)
     (size : R → ℕ) (B : ℕ) (h0 : size 0 ≤ B) (h1 : size 1 ≤ B) (hm : size (-1) ≤ B)
@@ -1213,7 +1235,7 @@ universe u
 variable {J R S : Type u} [Category.{u} J] [Fintype J]
   [∀ i j : J, Fintype (i ⟶ j)] [CommRing R] [DecidableEq R]
   [CommRing S] [Algebra R S] {V Q : J → Type u}
-  [∀ j, DecidableEq (V j)] [∀ j, Fintype (V j)] [∀ j, Fintype (Q j)]
+  [∀ j, DecidableEq (V j)]
 variable (D : CircuitDiagram (J := J) (R := R) (V := V) (Q := Q))
 
 abbrev MatrixIndex (i : J) := GateSystem.Index (D.Wire i) (D.Wire i)
@@ -1227,14 +1249,17 @@ abbrev OrbitRing (i : J) :=
 def ambientMap {i j} (α : i ⟶ j) : D.AmbientMatrix i S →ₗ[S] D.AmbientMatrix j S :=
   matrixBlockLift (D.matrixMap α)
 
+omit [Algebra R S] [Fintype J] [(i j : J) → Fintype (i ⟶ j)] in
 @[simp] theorem ambientMap_id (i : J) : D.ambientMap (S := S) (𝟙 i) = LinearMap.id := by
   simp [ambientMap, matrixBlockLift_id]
 
+omit [Algebra R S] [Fintype J] [(i j : J) → Fintype (i ⟶ j)] in
 @[simp] theorem ambientMap_comp {i j k} (α : i ⟶ j) (β : j ⟶ k) :
     (D.ambientMap (S := S) β).comp (D.ambientMap α) = D.ambientMap (α ≫ β) := by
   rw [ambientMap, ambientMap, matrixBlockLift_comp, matrixMap_comp]
   rfl
 
+omit [Algebra R S] in
 theorem ambientMap_assemble {i j} (α : i ⟶ j) (w : D.Wire i → S) :
     D.ambientMap α (iota ((D.gates i).assemble w)
       ((D.gates i).assemble w * (D.gates i).assemble w)) =
@@ -1254,6 +1279,7 @@ theorem ambientMap_preserves {i j} (α : i ⟶ j) (Z : D.AmbientMatrix i S)
   exact ((D.gates j).orbitSolutionEquiv
     ⟨_, D.projection_satisfies α w.val w.property⟩).property
 
+omit [Fintype J] [(i j : J) → Fintype (i ⟶ j)] in
 theorem ambientMap_natural {T : Type u} [CommRing T] [Algebra R T]
     (φ : S →ₐ[R] T) {i j} (α : i ⟶ j) (Z : D.AmbientMatrix i S) :
     (D.ambientMap α Z).map φ = D.ambientMap α (Z.map φ) := by
@@ -1305,17 +1331,20 @@ abbrev AmbientRing (i : J) := MvPolynomial (GateSystem.OrbitCoord (D.Wire i) (D.
 def ambientPolynomialMap {i j} (α : i ⟶ j) : D.AmbientRing j →ₐ[R] D.AmbientRing i :=
   aeval (fun ij => D.ambientMap α (GateSystem.orbitMatrix X) ij.1 ij.2)
 
+omit [Fintype J] [(i j : J) → Fintype (i ⟶ j)] in
 theorem ambientPolynomialMap_matrix {i j} (α : i ⟶ j) :
     (GateSystem.orbitMatrix (X : _ → D.AmbientRing j)).map (D.ambientPolynomialMap α) =
       D.ambientMap α (GateSystem.orbitMatrix (X : _ → D.AmbientRing i)) := by
   ext a b
   simp [ambientPolynomialMap, GateSystem.orbitMatrix]
 
+omit [Fintype J] [(i j : J) → Fintype (i ⟶ j)] in
 @[simp] theorem ambientPolynomialMap_id (i : J) :
     D.ambientPolynomialMap (𝟙 i) = AlgHom.id R (D.AmbientRing i) := by
   ext v
   simp [ambientPolynomialMap, GateSystem.orbitMatrix]
 
+omit [Fintype J] [(i j : J) → Fintype (i ⟶ j)] in
 @[simp] theorem ambientPolynomialMap_comp {i j k} (α : i ⟶ j) (β : j ⟶ k) :
     (D.ambientPolynomialMap α).comp (D.ambientPolynomialMap β) =
       D.ambientPolynomialMap (α ≫ β) := by
@@ -1391,7 +1420,7 @@ theorem gateOrbitAlgEquiv_natural {i j} (α : i ⟶ j) :
   simp only [AlgHom.comp_apply, copiedMap_generator, AlgEquiv.coe_algHom,
     gateOrbitAlgEquiv_generator, orbitMap_generator]
   simp [ambientMap, matrixBlockLift, matrixMap, GateSystem.matrixPullback,
-    GateSystem.blockLabel, GateSystem.indexMap, wireMap, copy, GateSystem.orbitMatrix]
+    GateSystem.blockLabel, GateSystem.indexMap, wireMap, copy]
   rfl
 
 def orbitSchemeFunctor : J ⥤ Scheme :=
@@ -1496,7 +1525,7 @@ theorem quotient_eq_sup_isPullback (R : Type u) [CommRing R] (I J K : Ideal R)
 
 namespace GateSystem
 variable {R W G E : Type u} [CommRing R] [Fintype W] [DecidableEq W]
-  [Fintype G] [DecidableEq G] [Fintype E]
+  [Fintype G] [DecidableEq G]
 
 theorem orbitSectionIdeal_eq_squareZero (C : GateSystem R W G E) :
     equationIdeal C.orbitPolynomials = equationIdeal C.orbitAffinePolynomials ⊔
