@@ -942,8 +942,7 @@ namespace GateSystem
 variable {R S W G E : Type u} [CommRing R] [CommRing S] [Algebra R S]
   [Fintype W] [DecidableEq W] [Fintype G] [DecidableEq G] [Fintype E]
 
-/-- The algebraic feasibility reduction underlying the complexity consequence.
-This states exact satisfiability equivalence, without asserting an unformalized runtime bound. -/
+/-- Exact algebraic feasibility equivalence for the affine orbit section. -/
 theorem feasibility_reduction (C : GateSystem R W G E) :
     (∃ w : W → S, C.Satisfies w) ↔
       ∃ Z : Matrix (Index W G ⊕ Index W G) (Index W G ⊕ Index W G) S,

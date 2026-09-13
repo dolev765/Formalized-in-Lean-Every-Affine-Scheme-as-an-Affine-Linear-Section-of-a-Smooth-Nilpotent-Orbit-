@@ -11,3 +11,6 @@ paper.txt
 .DS_Store
 Thumbs.db
 *.log
+_site/
+verified-statements.txt
+lean-version.txt

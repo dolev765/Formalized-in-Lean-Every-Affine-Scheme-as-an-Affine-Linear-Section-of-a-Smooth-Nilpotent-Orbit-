@@ -3,8 +3,8 @@ import Universality.Construction
 /-!
 # Exact affine-linear universality in the square-zero orbit
 
-`affine_orbit_universality` is the theorem-facing entry point for the statement
-in NOP.png. Its witness uses one circuit, one positive matrix size, and one
+`affine_orbit_universality` is the main theorem. Its witness uses one circuit,
+one positive matrix size, and one
 section scheme throughout. The two intersection fields are categorical
 pullback certificates in `Scheme`, including nonreduced scheme structure.
 
@@ -21,7 +21,7 @@ open CategoryTheory CategoryTheory.Limits AlgebraicGeometry MvPolynomial
 
 universe u
 
-/-- A complete realization of `Spec A` by the affine-linear section in NOP.png.
+/-- A complete realization of `Spec A` as an affine-linear orbit section.
 All certificates concern the same compiler witness and therefore the same
 ambient matrix space, orbit, cell, and affine-linear closed subscheme. -/
 structure AffineOrbitRealization (k A : Type u) [Field k] [CommRing A] [Algebra k A] where
@@ -81,7 +81,7 @@ attribute [instance] AffineOrbitRealization.wireFinite AffineOrbitRealization.ga
   AffineOrbitRealization.equationFinite AffineOrbitRealization.wireDecidable
   AffineOrbitRealization.gateDecidable
 
-/-- Every finitely presented affine `k`-scheme has the exact realization of NOP.png:
+/-- Every finitely presented affine `k`-scheme has an exact affine-linear realization:
 one positive-size smooth square-zero orbit, its closed affine Lagrangian cell,
 and an affine-linear closed subscheme whose two intersections are `Spec A`. -/
 theorem affine_orbit_universality (k A : Type u) [Field k] [CommRing A] [Algebra k A]

@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Build the pinned Lean project
         uses: leanprover/lean-action@v1
         env:
@@ -29,6 +29,14 @@ jobs:
         run: |
           set -o pipefail
           lake env lean Universality/Audit.lean | tee lean-axiom-audit.log
+      - name: Export the exact Lean theorem statements
+        shell: bash
+        run: |
+          set -o pipefail
+          lake env lean Universality/Statements.lean | tee verified-statements.txt
+          lean --version > lean-version.txt
+      - name: Generate the verified audit page
+        run: python3 scripts/build_audit_page.py
       - name: Publish the verification summary
         shell: bash
         run: |
@@ -61,3 +69,24 @@ jobs:
         with:
           name: lean-axiom-audit
           path: lean-axiom-audit.log
+      - name: Package the verified GitHub Pages report
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+  deploy:
+    name: Publish verified theorem report
+    needs: check
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy the verified report
+        id: deployment
+        uses: actions/deploy-pages@v4
