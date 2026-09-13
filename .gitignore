@@ -1,0 +1,13 @@
+.lake/
+*.olean
+*.ilean
+*.trace
+
+# Archived experiments and extracted source material are not part of the project.
+trash/
+paper.txt
+
+# Local editor and operating-system state.
+.DS_Store
+Thumbs.db
+*.log

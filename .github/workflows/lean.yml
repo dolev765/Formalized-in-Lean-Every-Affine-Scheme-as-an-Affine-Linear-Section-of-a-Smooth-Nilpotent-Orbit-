@@ -1,0 +1,63 @@
+name: Lean kernel build and axiom audit
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Build full proof and audit axioms
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the pinned Lean project
+        uses: leanprover/lean-action@v1
+        env:
+          LEAN_NUM_THREADS: "1"
+        with:
+          build: true
+          test: false
+          lint: false
+          use-mathlib-cache: true
+      - name: Audit the exported theorem and its axioms
+        shell: bash
+        run: |
+          set -o pipefail
+          lake env lean Universality/Audit.lean | tee lean-axiom-audit.log
+      - name: Publish the verification summary
+        shell: bash
+        run: |
+          {
+            echo '## Lean proof and axiom audit passed'
+            echo
+            echo "Checked commit: \`$GITHUB_SHA\`"
+            echo
+            echo 'The pinned Lean compiler successfully built the complete project.'
+            echo 'All 18 audited declarations passed the transitive axiom check.'
+            echo 'Allowed axioms: `propext`, `Classical.choice`, `Quot.sound`.'
+            echo
+            echo 'Main theorem: `Universality.affine_orbit_universality`.'
+            echo 'Statement and witness: `Universality/Main.lean`.'
+            echo 'Executable audit: `Universality/Audit.lean`.'
+            echo
+            echo '### Compiler versions'
+            echo '```text'
+            lean --version
+            echo 'Mathlib: 5450b53e5ddc75d46418fabb605edbf36bd0beb6'
+            echo '```'
+            echo
+            echo '### Axiom audit output'
+            echo '```text'
+            cat lean-axiom-audit.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Save the axiom audit log
+        uses: actions/upload-artifact@v4
+        with:
+          name: lean-axiom-audit
+          path: lean-axiom-audit.log
