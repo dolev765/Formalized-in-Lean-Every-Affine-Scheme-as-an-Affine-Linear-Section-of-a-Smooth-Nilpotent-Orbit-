@@ -18,8 +18,8 @@ finish successfully.
 
 For interactive browser use, open the repository's **Code → Codespaces** menu.
 The development container runs the same checks and provides the Lean editor.
-Open [Main.lean](../Universality/Main.lean) to inspect the theorem and its
-certificates. The check log is `.lake/browser-check.log`.
+Open [Statements.lean](../Universality/Statements.lean) for the explicit theorem
+and its axiom output. The check log is `.lake/browser-check.log`.
 
 GitHub Actions runs the build and audit for the source commit shown in each
 workflow run.

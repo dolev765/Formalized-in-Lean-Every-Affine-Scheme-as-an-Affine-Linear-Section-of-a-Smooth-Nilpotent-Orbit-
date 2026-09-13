@@ -1,15 +1,118 @@
-import Universality
+import Universality.Main
 
-set_option format.width 100
+namespace Universality
+noncomputable section
+open CategoryTheory CategoryTheory.Limits AlgebraicGeometry MvPolynomial
+open SquareZeroGeometry
+open GlobalSymplectic AffineForms
+universe u
 
-#print axioms Universality.affine_orbit_universality
-#check @Universality.affine_orbit_universality
-#print Universality.AffineOrbitRealization
-#check @Universality.lagrangian_squareZero_orbit_universality
-#print axioms Universality.lagrangian_squareZero_orbit_universality
-#check @Universality.GateSystem.sectionToOrbit_isPullback
-#check @Universality.GateSystem.sectionToCell_isPullback
-#check @Universality.SquareZeroGeometry.maximalRankScheme_dimension
-#check @Universality.SquareZeroGeometry.cellMorphism_isClosedImmersion
-#print Universality.GlobalSymplectic.AlgebraicSymplecticAtlas
-#check @Universality.GlobalSymplectic.cell_pullback_form_zero
+/-- Exact affine-linear universality in a smooth square-zero orbit and its closed Lagrangian cell. -/
+theorem affine_orbit_universality_explicit (k A : Type u)
+    [Field k] [CommRing A] [Algebra k A] [Algebra.FinitePresentation k A] :
+    ∃ (n : Type u) (_ : Fintype n) (_ : DecidableEq n)
+      (Q : Type u) (_ : Fintype Q)
+      (affineEquations : Q → MvPolynomial ((n ⊕ n) × (n ⊕ n)) k)
+      (I : Ideal (MvPolynomial ((n ⊕ n) × (n ⊕ n)) k))
+      (coordinateIso : A ≃ₐ[k] (MvPolynomial ((n ⊕ n) × (n ⊕ n)) k ⧸ I)),
+      let ambient := Spec (.of (MvPolynomial ((n ⊕ n) × (n ⊕ n)) k))
+      let L := Spec (.of (MvPolynomial ((n ⊕ n) × (n ⊕ n)) k ⧸ equationIdeal affineEquations))
+      let X := Spec (.of (MvPolynomial ((n ⊕ n) × (n ⊕ n)) k ⧸ I))
+      let Z : Matrix (n ⊕ n) (n ⊕ n) (MvPolynomial ((n ⊕ n) × (n ⊕ n)) k) :=
+        fun i j => MvPolynomial.X (i, j)
+      let squareZeroRelations := Ideal.span (Set.range
+        (fun ij : (n ⊕ n) × (n ⊕ n) => (Z * Z) ij.1 ij.2))
+      let S := Spec (.of (MvPolynomial ((n ⊕ n) × (n ⊕ n)) k ⧸ squareZeroRelations))
+      let rankOpen : S.Opens := ⨆ (r : n → n ⊕ n) (c : n → n ⊕ n),
+        PrimeSpectrum.basicOpen (((Z.map (Ideal.Quotient.mk squareZeroRelations)).submatrix r c).det)
+      let O := rankOpen.toScheme
+      let U := Spec (.of (MvPolynomial (n × n) k))
+      let affineInclusion : L ⟶ ambient :=
+        Spec.map (CommRingCat.ofHom (Ideal.Quotient.mk (equationIdeal affineEquations)))
+      let orbitInclusion : O ⟶ ambient := rankOpen.ι ≫
+        Spec.map (CommRingCat.ofHom (Ideal.Quotient.mk squareZeroRelations))
+      let cellInclusion : U ⟶ O := cellMorphism k n
+      ∃ (toAffine : X ⟶ L) (toOrbit : X ⟶ O) (toCell : X ⟶ U)
+        (schemeIso : Spec (.of A) ≅ X),
+        0 < Fintype.card n ∧
+        (∀ q, (affineEquations q).totalDegree ≤ 1) ∧
+        I = equationIdeal affineEquations ⊔ squareZeroRelations ∧
+        schemeIso = Scheme.Spec.mapIso coordinateIso.symm.toRingEquiv.toCommRingCatIso.op ∧
+        toAffine ≫ affineInclusion = Spec.map (CommRingCat.ofHom (Ideal.Quotient.mk I)) ∧
+        IsClosedImmersion affineInclusion ∧
+        IsImmersion orbitInclusion ∧
+        IsPullback toAffine toOrbit affineInclusion orbitInclusion ∧
+        IsPullback toAffine toCell affineInclusion (cellInclusion ≫ orbitInclusion) ∧
+        toOrbit = toCell ≫ cellInclusion ∧
+        IsClosedImmersion toOrbit ∧
+        IsClosedImmersion toCell ∧
+        IsClosedImmersion cellInclusion ∧
+        (∀ M : Matrix (n ⊕ n) (n ⊕ n) k,
+          (∃ P Q : Matrix (n ⊕ n) (n ⊕ n) k,
+            P * Q = 1 ∧ Q * P = 1 ∧ M = P * jordanCell * Q) ↔
+            M * M = 0 ∧ M.rank = Fintype.card n) ∧
+        SmoothOfRelativeDimension (2 * Fintype.card n ^ 2) (maximalRankStructureMap k n) ∧
+        IrreducibleSpace O ∧
+        SmoothOfRelativeDimension (Fintype.card n ^ 2)
+          (Spec.map (CommRingCat.ofHom (algebraMap k (MvPolynomial (n × n) k)))) ∧
+        ∃ (charts : ∀ e : Equiv.Perm (n ⊕ n),
+              (permutationOpen k n e).toScheme ≅ Spec (.of (ChartRing k n)))
+          (overlaps : ∀ e f : Equiv.Perm (n ⊕ n),
+              (permutationOpen k n e ⊓ permutationOpen k n f).toScheme ≅
+                Spec (.of (OverlapRing k n e f)))
+          (form : Equiv.Perm (n ⊕ n) → LinearMap.BilinForm (ChartRing k n)
+              (Derivation k (ChartRing k n) (ChartRing k n)))
+          (perfect : ∀ _e : Equiv.Perm (n ⊕ n),
+              Derivation k (ChartRing k n) (ChartRing k n) ≃ₗ[ChartRing k n]
+                Module.Dual (ChartRing k n) (Derivation k (ChartRing k n) (ChartRing k n))),
+          (⨆ e, permutationOpen k n e) = maximalRankOpen k n ∧
+          (∀ e, (charts e).inv ≫ (permutationOpen k n e).ι =
+            Spec.map (CommRingCat.ofHom (chartEmbeddingBase k n e).toRingHom)) ∧
+          (∀ e f, (overlaps e f).hom ≫
+            Spec.map (CommRingCat.ofHom (algebraMap (CoordinateRing k n) (OverlapRing k n e f))) =
+              (permutationOpen k n e ⊓ permutationOpen k n f).ι) ∧
+          (∀ e, form e = canonicalTrace (chartT k n) (chartA k n)) ∧
+          (∀ e D, form e D D = 0) ∧
+          (∀ e D E F,
+            D (form e E F) - E (form e D F) + F (form e D E) -
+              form e ⁅D, E⁆ F + form e ⁅D, F⁆ E - form e ⁅E, F⁆ D = 0) ∧
+          (∀ e, (perfect e).toLinearMap = form e) ∧
+          (∀ e f,
+            canonicalTrace (R := k)
+              ((chartT k n).map (overlapChartMap k n e f e (overlapT_left_isUnit k n e f)))
+              ((chartA k n).map (overlapChartMap k n e f e (overlapT_left_isUnit k n e f))) =
+            canonicalTrace
+              ((chartT k n).map (overlapChartMap k n e f f (overlapT_right_isUnit k n e f)))
+              ((chartA k n).map (overlapChartMap k n e f f (overlapT_right_isUnit k n e f)))) ∧
+          cellInclusion = Spec.map (CommRingCat.ofHom (cellChartEval k n).toRingHom) ≫
+            (orbitChartToPermutationIso k n (Equiv.refl _) ≪≫ charts (Equiv.refl _)).inv ≫
+              (orbitChartOpen k n (Equiv.refl _)).ι ∧
+          canonicalTrace (R := k)
+            ((chartT k n).map (cellChartEval k n)) ((chartA k n).map (cellChartEval k n)) = 0 := by
+  obtain ⟨r⟩ := affine_orbit_universality k A
+  refine ⟨GateSystem.Index r.Wire r.Gate, inferInstance, inferInstance,
+    GateSystem.OrbitAffineEquation r.Wire r.Gate r.Equation, inferInstance,
+    r.circuit.orbitAffinePolynomials, equationIdeal r.circuit.orbitPolynomials,
+    r.coordinateIso, r.circuit.sectionToAffine, r.circuit.sectionToOrbit,
+    r.circuit.sectionToCell, r.schemeIso, r.positive_size, r.affine_degree, ?_,
+    r.schemeIso_from_coordinate,
+    r.orbit_intersection.w.trans r.circuit.sectionToOrbit_ambient,
+    r.affine_closed, maximalRankScheme_isImmersion k _,
+    r.orbit_intersection, r.cell_intersection, rfl,
+    r.section_closed_in_orbit, r.section_closed_in_cell, r.cell_closed_in_orbit,
+    (fun M => inJordanOrbit_iff_square_zero_rank M),
+    r.orbit_smooth_dimension, r.orbit_irreducible, r.cell_smooth_dimension, ?_⟩
+  · simpa only [squareZeroIdeal, genericMatrix, GateSystem.orbitMatrix] using
+      r.circuit.orbitSectionIdeal_eq
+  · refine ⟨r.symplectic.chartIso, r.symplectic.overlapIso, r.symplectic.form,
+      r.symplectic.perfect, r.symplectic.covers, r.symplectic.chart_embedding,
+      r.symplectic.overlap_embedding, r.symplectic.local_formula,
+      (fun e D => r.symplectic.alternating e D),
+      (fun e D E F => r.symplectic.closed e D E F),
+      r.symplectic.perfect_form, r.symplectic.compatible, r.cell_chart_factorization,
+      r.cell_isotropic⟩
+
+end
+end Universality
+
+#print axioms Universality.affine_orbit_universality_explicit

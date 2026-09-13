@@ -1,1 +1,1 @@
-import Universality.Main
+import Universality.Statements

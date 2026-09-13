@@ -1,10 +1,9 @@
 # Proof guide
 
-The entry point is `Universality.affine_orbit_universality` in
-[Main.lean](../Universality/Main.lean). It constructs
-`AffineOrbitRealization k A` for every finitely presented commutative algebra
-over a field. All certificates refer to the same circuit, matrix size, and
-section scheme.
+The explicit theorem is `Universality.affine_orbit_universality_explicit` in
+[Statements.lean](../Universality/Statements.lean). Its quantified objects and
+geometric conclusions are written directly in its type.
+[Main.lean](../Universality/Main.lean) supplies the construction used by its proof.
 
 | Conclusion | Certificate |
 | --- | --- |

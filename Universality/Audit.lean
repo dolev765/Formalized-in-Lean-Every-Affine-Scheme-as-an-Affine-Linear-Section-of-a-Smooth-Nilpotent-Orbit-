@@ -14,6 +14,7 @@ open Lean Elab Command in
 run_cmd do
   let allowed : Array Name := #[``propext, ``Classical.choice, ``Quot.sound]
   let declarations : Array Name := #[
+    ``Universality.affine_orbit_universality_explicit,
     ``Universality.affine_orbit_universality,
     ``Universality.lagrangian_squareZero_orbit_universality,
     ``Universality.GateSystem.sectionToOrbit_isPullback,

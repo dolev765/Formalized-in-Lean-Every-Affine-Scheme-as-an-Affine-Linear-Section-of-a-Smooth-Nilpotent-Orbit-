@@ -3,15 +3,20 @@
 from html import escape
 from pathlib import Path
 import os
+import re
 
 root = Path(__file__).resolve().parents[1]
 audit = (root / "lean-axiom-audit.log").read_text(encoding="utf-8")
 statements = (root / "verified-statements.txt").read_text(encoding="utf-8")
-if "PASS: all 18 audited declarations" not in audit:
+if "PASS: all 19 audited declarations" not in audit:
     raise SystemExit("The required Lean axiom audit did not pass.")
-axioms = statements.split("Universality.affine_orbit_universality :", 1)[0].strip()
-if not axioms.startswith("'Universality.affine_orbit_universality' depends on axioms:"):
+native_output = re.search(
+    r"'Universality\.affine_orbit_universality_explicit' depends on axioms:\s*\[[^\]]*\]",
+    statements,
+)
+if native_output is None:
     raise SystemExit("Lean's native axiom output is missing.")
+axioms = native_output.group(0)
 repository = os.environ["GITHUB_REPOSITORY"]
 source = f"https://github.com/{repository}/blob/{os.environ['GITHUB_SHA']}/Universality/Statements.lean"
 editor = f"https://codespaces.new/{repository}?quickstart=1"
