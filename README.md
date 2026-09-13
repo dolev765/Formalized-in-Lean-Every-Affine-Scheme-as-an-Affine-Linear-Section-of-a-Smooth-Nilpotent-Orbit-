@@ -3,9 +3,11 @@
 [![Lean kernel build and axiom audit](https://github.com/dolev765/Formalized-in-Lean-Every-Affine-Scheme-as-an-Affine-Linear-Section-of-a-Smooth-Nilpotent-Orbit-/actions/workflows/lean.yml/badge.svg?branch=main)](https://github.com/dolev765/Formalized-in-Lean-Every-Affine-Scheme-as-an-Affine-Linear-Section-of-a-Smooth-Nilpotent-Orbit-/actions/workflows/lean.yml)
 [![Open proof in browser](https://github.com/codespaces/badge.svg)](https://codespaces.new/dolev765/Formalized-in-Lean-Every-Affine-Scheme-as-an-Affine-Linear-Section-of-a-Smooth-Nilpotent-Orbit-?quickstart=1)
 
-**[View the Lean build and axiom audit](https://github.com/dolev765/Formalized-in-Lean-Every-Affine-Scheme-as-an-Affine-Linear-Section-of-a-Smooth-Nilpotent-Orbit-/actions/workflows/lean.yml)** · **[Open the proof in a browser Lean editor](https://codespaces.new/dolev765/Formalized-in-Lean-Every-Affine-Scheme-as-an-Affine-Linear-Section-of-a-Smooth-Nilpotent-Orbit-?quickstart=1)** · **[Read the main theorem](Universality/Main.lean)**
+**[View the verified Lean audit](https://github.com/dolev765/Formalized-in-Lean-Every-Affine-Scheme-as-an-Affine-Linear-Section-of-a-Smooth-Nilpotent-Orbit-/actions/runs/34763744217)** · **[Open the proof in a browser Lean editor](https://codespaces.new/dolev765/Formalized-in-Lean-Every-Affine-Scheme-as-an-Affine-Linear-Section-of-a-Smooth-Nilpotent-Orbit-?quickstart=1)** · **[Read the main theorem](Universality/Main.lean)**
 
-The audit link opens the public GitHub Actions result for this repository. A
+The verified-audit link opens the successful GitHub Actions report for proof
+commit `9044fe27a6d5e2156748576b0b22d011f100b88a` directly. The status badge
+above links to current and subsequent runs on `main`. A
 green run means the pinned Lean compiler built the full proof and the axiom
 audit passed for that commit. Each successful run includes a readable summary
 and downloadable axiom-audit log. No local installation is needed to inspect
@@ -71,10 +73,10 @@ standard axioms listed above. For the original Windows development environment,
 `Check.ps1` can reuse an existing package cache. It is optional; the commands
 above are the portable checking interface.
 
-## Check in a browser after upload
+## Check in a browser
 
 The repository includes a GitHub Codespaces development container and a GitHub
-Actions workflow. After uploading the repository, open **Code → Codespaces →
+Actions workflow. Open **Code → Codespaces →
 Create codespace**. The container installs the pinned toolchain and runs the
 cache, build, and axiom-audit commands. Open `Universality/Main.lean` to inspect
 the theorem in the Lean editor. Detailed steps and the expected success marker

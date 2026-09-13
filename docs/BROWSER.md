@@ -6,8 +6,10 @@ toolchain and Mathlib revision committed with the proof.
 
 ## View the public compiler audit
 
-Open **[Lean kernel build and axiom audit](https://github.com/dolev765/Formalized-in-Lean-Every-Affine-Scheme-as-an-Affine-Linear-Section-of-a-Smooth-Nilpotent-Orbit-/actions/workflows/lean.yml)**
-and select the latest successful run for `main`. Its summary identifies the
+Open **[the verified Lean audit](https://github.com/dolev765/Formalized-in-Lean-Every-Affine-Scheme-as-an-Affine-Linear-Section-of-a-Smooth-Nilpotent-Orbit-/actions/runs/34763744217)**
+for the published proof commit `9044fe27a6d5e2156748576b0b22d011f100b88a`.
+For subsequent revisions, use **[current workflow runs](https://github.com/dolev765/Formalized-in-Lean-Every-Affine-Scheme-as-an-Affine-Linear-Section-of-a-Smooth-Nilpotent-Orbit-/actions/workflows/lean.yml)**.
+Each successful run's summary identifies the
 exact checked commit, compiler versions, and all 18 declarations' axiom
 dependencies. The complete axiom log is also attached to the run.
 
