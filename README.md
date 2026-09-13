@@ -11,7 +11,7 @@ $$
 
 [Lean statement](Universality/Statements.lean)
 · [Build in Lean](https://codespaces.new/dolev765/Formalized-in-Lean-Every-Affine-Scheme-as-an-Affine-Linear-Section-of-a-Smooth-Nilpotent-Orbit-?quickstart=1)
-· [GitHub Actions](https://github.com/dolev765/Formalized-in-Lean-Every-Affine-Scheme-as-an-Affine-Linear-Section-of-a-Smooth-Nilpotent-Orbit-/actions/workflows/lean.yml)
+· [Latest verified build](https://dolev765.github.io/Formalized-in-Lean-Every-Affine-Scheme-as-an-Affine-Linear-Section-of-a-Smooth-Nilpotent-Orbit-/build/)
 
 ```sh
 lake exe cache get

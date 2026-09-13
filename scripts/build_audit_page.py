@@ -39,3 +39,12 @@ pre{{font:14px/1.7 ui-monospace,Consolas,monospace;white-space:pre-wrap;overflow
 <h2>Axioms</h2><pre>{escape(axioms)}</pre>
 </body></html>''', encoding="utf-8")
 (output / ".nojekyll").touch()
+
+build = output / "build"
+build.mkdir(exist_ok=True)
+(build / "index.html").write_text(f'''<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Latest verified build</title>
+<meta http-equiv="refresh" content="0;url={escape(verification)}">
+</head><body><a href="{escape(verification)}">Latest verified build</a></body></html>
+''', encoding="utf-8")
