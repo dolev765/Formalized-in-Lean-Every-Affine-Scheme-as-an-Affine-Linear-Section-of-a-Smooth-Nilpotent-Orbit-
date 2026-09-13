@@ -2,6 +2,8 @@
 
 from html import escape
 from pathlib import Path
+from urllib.request import Request, urlopen
+import json
 import os
 import re
 
@@ -17,7 +19,30 @@ axioms = native_output.group(0)
 repository = os.environ["GITHUB_REPOSITORY"]
 source = f"https://github.com/{repository}/blob/{os.environ['GITHUB_SHA']}/Universality/MainTheorem.lean"
 editor = f"https://codespaces.new/{repository}?quickstart=1"
-verification = f"https://github.com/{repository}/actions/runs/{os.environ['GITHUB_RUN_ID']}"
+api = os.environ.get("GITHUB_API_URL", "https://api.github.com")
+run_id = os.environ["GITHUB_RUN_ID"]
+attempt = os.environ["GITHUB_RUN_ATTEMPT"]
+headers = {"Accept": "application/vnd.github+json"}
+if token := os.environ.get("GITHUB_TOKEN"):
+    headers["Authorization"] = f"Bearer {token}"
+request = Request(
+    f"{api}/repos/{repository}/actions/runs/{run_id}/attempts/{attempt}/jobs?per_page=100",
+    headers=headers,
+)
+with urlopen(request, timeout=30) as response:
+    jobs = json.load(response)["jobs"]
+job = next(job for job in jobs if job["name"] == "Build and verify")
+steps = {step["name"]: step for step in job["steps"]}
+checks = {
+    "build": ("Latest verified build", "Build the pinned Lean project"),
+    "axioms": ("Axiom audit", "Check the main theorem and audit its axioms"),
+}
+links = {}
+for route, (_, step_name) in checks.items():
+    step = steps[step_name]
+    if step["conclusion"] != "success":
+        raise SystemExit(f"Verification step did not pass: {step_name}")
+    links[route] = f"{job['html_url']}#step:{step['number']}:1"
 title = "Every finitely presented affine scheme over a commutative ring is an affine-linear section of a smooth relative square-zero nilpotent orbit and its closed affine Lagrangian cell."
 output = root / "_site"
 output.mkdir(exist_ok=True)
@@ -32,16 +57,17 @@ nav{{display:flex;flex-wrap:wrap;gap:24px}}a{{color:#174c83;text-underline-offse
 pre{{font:14px/1.7 ui-monospace,Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere}}
 </style></head><body>
 <h1>{escape(title)}</h1>
-<nav><a href="{escape(editor)}">Build in Lean</a><a href="{escape(verification)}">GitHub verification: passed</a><a href="{escape(source)}">Source</a></nav>
+<nav><a href="{escape(editor)}">Build in Lean</a><a href="{escape(links['build'])}">Latest verified build</a><a href="{escape(links['axioms'])}">Axioms</a><a href="{escape(source)}">Source</a></nav>
 <h2>Axioms</h2><pre>{escape(axioms)}</pre>
 </body></html>''', encoding="utf-8")
 (output / ".nojekyll").touch()
 
-build = output / "build"
-build.mkdir(exist_ok=True)
-(build / "index.html").write_text(f'''<!doctype html>
+for route, (label, _) in checks.items():
+    destination = output / route
+    destination.mkdir(exist_ok=True)
+    (destination / "index.html").write_text(f'''<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
-<title>Latest verified build</title>
-<meta http-equiv="refresh" content="0;url={escape(verification)}">
-</head><body><a href="{escape(verification)}">Latest verified build</a></body></html>
+<title>{escape(label)}</title>
+<meta http-equiv="refresh" content="0;url={escape(links[route])}">
+</head><body><a href="{escape(links[route])}">{escape(label)}</a></body></html>
 ''', encoding="utf-8")
