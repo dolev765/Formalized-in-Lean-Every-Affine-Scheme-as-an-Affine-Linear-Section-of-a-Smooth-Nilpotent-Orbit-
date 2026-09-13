@@ -1,4 +1,4 @@
-name: Lean kernel build and axiom audit
+name: Lean verification
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   check:
-    name: Build full proof and audit axioms
+    name: Build and verify
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -24,16 +24,16 @@ jobs:
           test: false
           lint: false
           use-mathlib-cache: true
-      - name: Audit the exported theorem and its axioms
-        shell: bash
-        run: |
-          set -o pipefail
-          lake env lean Universality/Audit.lean | tee lean-axiom-audit.log
-      - name: Check the explicit theorem and print its axioms
+      - name: Check the main theorem and audit its axioms
         shell: bash
         run: |
           set -o pipefail
           lake env lean Universality/Statements.lean | tee verified-statements.txt
+      - name: "Comparator: statement, axioms, and kernel replay"
+        shell: bash
+        run: |
+          set -o pipefail
+          python3 scripts/check_comparator.py | tee comparator-verification.log
       - name: Generate the verified audit page
         run: python3 scripts/build_audit_page.py
       - name: Publish the verification summary
@@ -42,14 +42,20 @@ jobs:
           {
             echo '## Axioms'
             echo '```text'
-            cat lean-axiom-audit.log
+            cat verified-statements.txt
+            echo '```'
+            echo '## Comparator'
+            echo '```text'
+            tail -n 3 comparator-verification.log
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
-      - name: Save the axiom audit log
+      - name: Save verification logs
         uses: actions/upload-artifact@v4
         with:
-          name: lean-axiom-audit
-          path: lean-axiom-audit.log
+          name: lean-verification
+          path: |
+            verified-statements.txt
+            comparator-verification.log
       - name: Package the verified GitHub Pages report
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v4

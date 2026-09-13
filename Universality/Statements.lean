@@ -1,4 +1,5 @@
 import Universality.Main
+import Lean.Util.CollectAxioms
 
 namespace Universality
 noncomputable section
@@ -156,5 +157,13 @@ theorem affine_orbit_universality_explicit (k A : Type u)
 
 end
 end Universality
+
+open Lean Elab Command in
+run_cmd do
+  let allowed : Array Name := #[``propext, ``Classical.choice, ``Quot.sound]
+  let axioms ← collectAxioms ``Universality.affine_orbit_universality_explicit
+  let unexpected := axioms.filter fun name => !allowed.contains name
+  unless unexpected.isEmpty do
+    throwError "Main theorem depends on unapproved axioms: {unexpected}"
 
 #print axioms Universality.affine_orbit_universality_explicit

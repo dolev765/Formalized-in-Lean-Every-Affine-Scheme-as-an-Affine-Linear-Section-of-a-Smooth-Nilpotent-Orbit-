@@ -1,0 +1,10 @@
+{
+  "reference_repository": "https://github.com/dolev765/Formalized-in-Lean-Every-Affine-Scheme-as-an-Affine-Linear-Section-of-a-Smooth-Nilpotent-Orbit-.git",
+  "reference_commit": "ecf9696eec308cd75989c67b1d02044754c3d4f2",
+  "comparator_commit": "95e46e658f5955ba1b01596d4ac668630476008c",
+  "challenge_module": "Universality.Statements",
+  "solution_module": "Universality.Statements",
+  "theorem_names": ["Universality.affine_orbit_universality_explicit"],
+  "permitted_axioms": ["propext", "Classical.choice", "Quot.sound"],
+  "enable_nanoda": false
+}
