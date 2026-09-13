@@ -9,6 +9,9 @@ $$
 X \cong L \times_{M_{2N}} U_N \cong L \times_{M_{2N}} O_N.
 $$
 
+Main results formalized from the [main paper](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=7199240).
+[Companion paper](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=7249658).
+
 [Lean statement](Universality/Statements.lean)
 · [Build in Lean](https://codespaces.new/dolev765/Formalized-in-Lean-Every-Affine-Scheme-as-an-Affine-Linear-Section-of-a-Smooth-Nilpotent-Orbit-?quickstart=1)
 · [Latest verified build](https://dolev765.github.io/Formalized-in-Lean-Every-Affine-Scheme-as-an-Affine-Linear-Section-of-a-Smooth-Nilpotent-Orbit-/build/)
