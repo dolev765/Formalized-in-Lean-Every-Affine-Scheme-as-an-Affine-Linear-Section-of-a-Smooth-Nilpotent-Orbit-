@@ -12,9 +12,9 @@ geometric conclusions are written directly in its type.
 | Affine-linear closed subscheme | `affine_degree`, `affine_closed` |
 | Scheme-theoretic intersections with the orbit and cell | `orbit_intersection`, `cell_intersection` |
 | Closed cell in the orbit | `cell_closed_in_orbit` |
-| Smooth orbit of dimension `2 * N^2` | `orbit_smooth_dimension` |
-| Irreducible orbit | `orbit_irreducible` |
-| Affine cell of dimension `N^2` | `AffineOrbitRealization.cell`, `cell_smooth_dimension` |
+| Smooth orbit of relative dimension `2 * N^2` | `orbit_smooth_dimension` |
+| Irreducible orbit when `k` is a field | `orbit_irreducible` |
+| Affine cell of relative dimension `N^2` | `AffineOrbitRealization.cell`, `cell_smooth_dimension` |
 | Compatible closed perfect symplectic form | `symplectic` |
 | Vanishing pullback along the actual cell immersion | `cell_chart_factorization`, `cell_isotropic` |
 

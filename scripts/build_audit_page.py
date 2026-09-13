@@ -21,7 +21,7 @@ repository = os.environ["GITHUB_REPOSITORY"]
 source = f"https://github.com/{repository}/blob/{os.environ['GITHUB_SHA']}/Universality/Statements.lean"
 editor = f"https://codespaces.new/{repository}?quickstart=1"
 verification = f"https://github.com/{repository}/actions/runs/{os.environ['GITHUB_RUN_ID']}"
-title = "Every finitely presented affine scheme over a field is an affine-linear section of a smooth square-zero nilpotent orbit and its closed affine Lagrangian cell."
+title = "Every finitely presented affine scheme over a commutative ring is an affine-linear section of a smooth relative square-zero nilpotent orbit and its closed affine Lagrangian cell."
 output = root / "_site"
 output.mkdir(exist_ok=True)
 (output / "index.html").write_text(f'''<!doctype html>

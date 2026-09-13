@@ -7,9 +7,9 @@ open SquareZeroGeometry
 open GlobalSymplectic AffineForms
 universe u
 
-/-- Exact affine-linear universality in a smooth square-zero orbit and its closed Lagrangian cell. -/
+/-- Exact affine-linear universality over any commutative ring, with a relative symplectic orbit. -/
 theorem affine_orbit_universality_explicit (k A : Type u)
-    [Field k] [CommRing A] [Algebra k A] [Algebra.FinitePresentation k A] :
+    [CommRing k] [CommRing A] [Algebra k A] [Algebra.FinitePresentation k A] :
 
     -- 1. Finite equations and exact coordinate algebra
     ∃ (n : Type u) (_ : Fintype n) (_ : DecidableEq n)
@@ -63,14 +63,14 @@ theorem affine_orbit_universality_explicit (k A : Type u)
         IsClosedImmersion toCell ∧
         IsClosedImmersion cellInclusion ∧
 
-        -- 5. Orbit classification, smoothness, and dimensions
-        (∀ M : Matrix (n ⊕ n) (n ⊕ n) k,
-          (∃ P Q : Matrix (n ⊕ n) (n ⊕ n) k,
+        -- 5. Field-valued orbit classification and relative dimensions over k
+        (∀ (K : Type u) [Field K] [Algebra k K] (M : Matrix (n ⊕ n) (n ⊕ n) K),
+          (∃ P Q : Matrix (n ⊕ n) (n ⊕ n) K,
             P * Q = 1 ∧ Q * P = 1 ∧ M = P * jordanCell * Q) ↔
             M * M = 0 ∧ M.rank = Fintype.card n) ∧
 
         SmoothOfRelativeDimension (2 * Fintype.card n ^ 2) (maximalRankStructureMap k n) ∧
-        IrreducibleSpace O ∧
+        (IsField k → IrreducibleSpace O) ∧
         SmoothOfRelativeDimension (Fintype.card n ^ 2)
           (Spec.map (CommRingCat.ofHom (algebraMap k (MvPolynomial (n × n) k)))) ∧
 
@@ -138,7 +138,7 @@ theorem affine_orbit_universality_explicit (k A : Type u)
     r.affine_closed, maximalRankScheme_isImmersion k _,
     r.orbit_intersection, r.cell_intersection, rfl,
     r.section_closed_in_orbit, r.section_closed_in_cell, r.cell_closed_in_orbit,
-    (fun M => inJordanOrbit_iff_square_zero_rank M),
+    (fun K _ _ M => inJordanOrbit_iff_square_zero_rank M),
     r.orbit_smooth_dimension, r.orbit_irreducible, r.cell_smooth_dimension, ?_⟩
 
   -- Exact ideal equality
