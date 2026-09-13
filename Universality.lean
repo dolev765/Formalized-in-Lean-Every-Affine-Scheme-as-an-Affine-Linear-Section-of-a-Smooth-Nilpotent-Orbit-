@@ -1,1 +1,1 @@
-import Universality.Statements
+import Universality.MainTheorem

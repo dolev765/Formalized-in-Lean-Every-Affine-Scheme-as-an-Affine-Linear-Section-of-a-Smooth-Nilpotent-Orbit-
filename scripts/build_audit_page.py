@@ -15,7 +15,7 @@ if native_output is None:
     raise SystemExit("Lean's native axiom output is missing.")
 axioms = native_output.group(0)
 repository = os.environ["GITHUB_REPOSITORY"]
-source = f"https://github.com/{repository}/blob/{os.environ['GITHUB_SHA']}/Universality/Statements.lean"
+source = f"https://github.com/{repository}/blob/{os.environ['GITHUB_SHA']}/Universality/MainTheorem.lean"
 editor = f"https://codespaces.new/{repository}?quickstart=1"
 verification = f"https://github.com/{repository}/actions/runs/{os.environ['GITHUB_RUN_ID']}"
 title = "Every finitely presented affine scheme over a commutative ring is an affine-linear section of a smooth relative square-zero nilpotent orbit and its closed affine Lagrangian cell."

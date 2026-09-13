@@ -11,6 +11,6 @@ printf 'Checking the complete repository using its pinned Lean and mathlib versi
 lean --version
 lake exe cache get
 lake build
-lake env lean Universality/Statements.lean
+lake env lean Universality/MainTheorem.lean
 printf '\nSUCCESS: lake build and the theorem audit both completed.\n'
 printf 'Full log: .lake/browser-check.log\n'

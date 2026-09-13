@@ -28,7 +28,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          lake env lean Universality/Statements.lean | tee verified-statements.txt
+          lake env lean Universality/MainTheorem.lean | tee verified-statements.txt
       - name: "Comparator: statement, axioms, and kernel replay"
         shell: bash
         run: |

@@ -10,7 +10,7 @@
     "storage": "32gb"
   },
   "postCreateCommand": "bash .devcontainer/check-project.sh",
-  "postAttachCommand": "code --reuse-window Universality/Statements.lean",
+  "postAttachCommand": "code --reuse-window Universality/MainTheorem.lean",
   "waitFor": "postCreateCommand",
   "customizations": {
     "vscode": {
