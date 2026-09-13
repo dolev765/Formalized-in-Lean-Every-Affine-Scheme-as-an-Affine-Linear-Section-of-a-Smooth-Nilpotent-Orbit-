@@ -10,10 +10,12 @@
     "storage": "32gb"
   },
   "postCreateCommand": "bash .devcontainer/check-project.sh",
+  "postAttachCommand": "code --reuse-window Universality/Statements.lean",
   "waitFor": "postCreateCommand",
   "customizations": {
     "vscode": {
-      "extensions": ["leanprover.lean4"]
+      "extensions": ["leanprover.lean4"],
+      "settings": {"workbench.startupEditor": "none"}
     }
   }
 }
