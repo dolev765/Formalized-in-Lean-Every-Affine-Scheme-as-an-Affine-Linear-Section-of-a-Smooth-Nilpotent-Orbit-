@@ -43,34 +43,3 @@ jobs:
         with:
           name: lean-verification
           path: verified-statements.txt
-
-  deploy:
-    name: Publish verified theorem report
-    needs: check
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      actions: read
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - uses: actions/checkout@v6
-      - name: Download the verified Lean output
-        uses: actions/download-artifact@v4
-        with:
-          name: lean-verification
-      - name: Generate the verified audit page
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: python3 scripts/build_audit_page.py
-      - name: Package the verified GitHub Pages report
-        uses: actions/upload-pages-artifact@v4
-        with:
-          path: _site
-      - name: Deploy the verified report
-        id: deployment
-        uses: actions/deploy-pages@v4
