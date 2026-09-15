@@ -4592,5 +4592,90 @@ theorem orbitKaehlerTwoForm_closed_by_descent (p : maximalRankOpen R n) :
       rw [map_zero, ← orbitKaehlerTwoForm_deRham_pullback, orbitKaehlerPullback_deRham_closed])
   exact congrFun h p
 
+open CategoryTheory AlgebraicGeometry.StructureSheaf
+
+/-- Coordinates of the actual cell inclusion into the square-zero scheme. -/
+def cellOrbitCoordinates : CoordinateRing R n →ₐ[R] CellRing R n :=
+  (cellChartEval R n).comp (toChartBase R n)
+
+theorem cellMorphism_squareZero : cellMorphism R n ≫ (maximalRankOpen R n).ι =
+    Spec.map (CommRingCat.ofHom (cellOrbitCoordinates R n).toRingHom) := by
+  apply (CategoryTheory.cancel_mono (squareZeroClosedImmersion R n)).mp
+  rw [CategoryTheory.Category.assoc, cellMorphism_ambient]
+  change Spec.map _ = Spec.map _ ≫ Spec.map _
+  rw [← Spec.map_comp]
+  apply congrArg Spec.map
+  apply CommRingCat.hom_ext
+  apply MvPolynomial.ringHom_ext
+  · intro r
+    simp [cellCoordinateMap, iotaCoordinateMap, graphEval, cellOrbitCoordinates]
+    exact ((cellOrbitCoordinates R n).commutes r).symm
+  · intro ij
+    change cellCoordinateMap (R := R) n (MvPolynomial.X ij) =
+      cellOrbitCoordinates R n (universalMatrix R n ij.1 ij.2)
+    rw [cellCoordinateMap_X]
+    exact (congrFun (congrFun (cellChartEval_toChartBase_universal R n) ij.1) ij.2).symm
+
+theorem cellOrbitCoordinates_topRight :
+    ((universalMatrix R n).map (cellOrbitCoordinates R n)).toBlocks₁₂ = 1 := by
+  rw [cellOrbitCoordinates, cellChartEval_toChartBase_universal]
+  simp [iota]
+
+theorem cellOrbitCoordinates_mem_chart (q : PrimeSpectrum (CellRing R n)) :
+    PrimeSpectrum.comap (cellOrbitCoordinates R n).toRingHom q ∈
+      permutationOpen R n (Equiv.refl _) := by
+  change cellOrbitCoordinates R n (((universalMatrix R n).submatrix (Equiv.refl _)
+    (Equiv.refl _)).toBlocks₁₂.det) ∉ q.asIdeal
+  have h : cellOrbitCoordinates R n ((universalMatrix R n).toBlocks₁₂.det) = 1 := by
+    rw [AlgHom.map_det]
+    change (((universalMatrix R n).map (cellOrbitCoordinates R n)).toBlocks₁₂).det = 1
+    rw [cellOrbitCoordinates_topRight, Matrix.det_one]
+  change cellOrbitCoordinates R n ((universalMatrix R n).toBlocks₁₂.det) ∉ q.asIdeal
+  rw [h]
+  exact q.asIdeal.one_notMem
+
+theorem cellOrbitCoordinates_mem_orbit (q : PrimeSpectrum (CellRing R n)) :
+    PrimeSpectrum.comap (cellOrbitCoordinates R n).toRingHom q ∈ maximalRankOpen R n :=
+  permutationOpen_le_maximalRank R n _ (cellOrbitCoordinates_mem_chart R n q)
+
+set_option synthInstance.maxHeartbeats 100000 in
+set_option maxHeartbeats 800000 in
+/-- The constructed global two-form pulls back to zero along the actual cell inclusion. -/
+theorem cell_global_form_pullback_zero :
+    kaehlerSectionPullback R (CoordinateRing R n) (CellRing R n) (cellOrbitCoordinates R n)
+      (maximalRankOpen R n) ⊤ (fun q _ => cellOrbitCoordinates_mem_orbit R n q)
+      (orbitKaehlerTwoForm R n) = 0 := by
+  apply Subtype.ext
+  funext q
+  apply (primeExteriorEquiv (CellRing R n) R q.val).injective
+  change _ = primeExteriorEquiv (CellRing R n) R q.val 0
+  rw [map_zero]
+  change primeExteriorEquiv (CellRing R n) R q.val
+    (Localizations.comapFun (kaehlerTwoMap R _ _ (cellOrbitCoordinates R n)) q.val _) = 0
+  rw [primeExterior_comap]
+  let p : maximalRankOpen R n := ⟨PrimeSpectrum.comap (cellOrbitCoordinates R n).toRingHom q.val,
+    cellOrbitCoordinates_mem_orbit R n q.val⟩
+  let g := Localization.localAlgHom p.val.asIdeal q.val.asIdeal (cellOrbitCoordinates R n) rfl
+  change kaehlerTwoMap R _ _ g (primeExteriorEquiv (CoordinateRing R n) R p.val
+    ((orbitKaehlerTwoForm R n).val p)) = 0
+  rw [orbitKaehlerTwoForm_chart R n p (Equiv.refl _) (cellOrbitCoordinates_mem_chart R n q.val),
+    kaehlerTwoMap_canonicalTrace]
+  have hT : ((chartT R n).map (primeChartEvaluation R n p.val (Equiv.refl _)
+      (cellOrbitCoordinates_mem_chart R n q.val))).map g = 1 := by
+    rw [primeChartEvaluation_T]
+    have hm := congrArg (fun M => M.map (algebraMap (CellRing R n) (PrimeLocalRing (CellRing R n) q.val)))
+      (cellOrbitCoordinates_topRight R n)
+    ext i j
+    change g (algebraMap (CoordinateRing R n) (PrimeLocalRing (CoordinateRing R n) p.val)
+      (universalMatrix R n (Sum.inl i) (Sum.inr j))) = _
+    change Localization.localRingHom p.val.asIdeal q.val.asIdeal
+      (cellOrbitCoordinates R n).toRingHom rfl
+        (algebraMap (CoordinateRing R n) (PrimeLocalRing (CoordinateRing R n) p.val)
+          (universalMatrix R n (Sum.inl i) (Sum.inr j))) = _
+    rw [Localization.localRingHom_to_map]
+    simpa [Matrix.toBlocks₁₂, Matrix.map_apply, Matrix.one_apply] using congrFun (congrFun hm i) j
+  rw [hT]
+  exact kaehlerCanonicalTrace_one _ _ _
+
 end
 end Universality.GlobalSymplectic

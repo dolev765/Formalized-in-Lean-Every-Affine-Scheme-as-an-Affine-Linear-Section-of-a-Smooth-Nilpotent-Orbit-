@@ -141,7 +141,7 @@ variable {R S V Q : Type*} [CommRing R] [CommRing S] [Algebra R S]
 
 /-- Matrix size index produced from an arbitrary finite polynomial presentation. -/
 abbrev PolynomialIndex (f : Q → MvPolynomial V R) :=
-  GateSystem.Index (ofPolynomials f).Wire (ofPolynomials f).Wire
+  GateSystem.Index (ofPolynomials f).Wire (ofPolynomials f).Gate
 
 theorem polynomialIndex_card_pos (f : Q → MvPolynomial V R) :
     0 < Fintype.card (PolynomialIndex f) := by
@@ -349,7 +349,7 @@ variable {R V Q : Type u} [CommRing R] [DecidableEq R] [DecidableEq V]
 /-- The full coordinate-ring form of graph-of-squaring universality. -/
 def polynomialMatrixCoordinateAlgEquiv (f : Q → MvPolynomial V R) :
     (MvPolynomial V R ⧸ equationIdeal f) ≃ₐ[R]
-      (MvPolynomial (GateSystem.MatrixCoord (ofPolynomials f).Wire (ofPolynomials f).Wire) R ⧸
+      (MvPolynomial (GateSystem.MatrixCoord (ofPolynomials f).Wire (ofPolynomials f).Gate) R ⧸
         equationIdeal (ofPolynomials f).gates.matrixPolynomials) :=
   (polynomialCoordinateAlgEquiv f).trans (ofPolynomials f).gates.matrixCoordinateAlgEquiv
 
@@ -358,7 +358,7 @@ matrix-square graph, with its full quotient ring and nilpotent structure. -/
 def polynomialMatrixSectionSchemeIso (f : Q → MvPolynomial V R) :
     AlgebraicGeometry.Spec (.of (MvPolynomial V R ⧸ equationIdeal f)) ≅
       AlgebraicGeometry.Spec (.of
-        (MvPolynomial (GateSystem.MatrixCoord (ofPolynomials f).Wire (ofPolynomials f).Wire) R ⧸
+        (MvPolynomial (GateSystem.MatrixCoord (ofPolynomials f).Wire (ofPolynomials f).Gate) R ⧸
           equationIdeal (ofPolynomials f).gates.matrixPolynomials)) :=
   AlgebraicGeometry.Scheme.Spec.mapIso
     (polynomialMatrixCoordinateAlgEquiv f).symm.toRingEquiv.toCommRingCatIso.op
@@ -390,7 +390,7 @@ theorem finitePresentation_matrixSection
     rw [hr]
     exact hs
   let P := ExpressionPresentation.ofPolynomials f
-  refine ⟨P.Wire, P.Wire, P.Wire ⊕ s, inferInstance, inferInstance, inferInstance,
+  refine ⟨P.Wire, P.Gate, P.Wire ⊕ s, inferInstance, inferInstance, inferInstance,
     inferInstance, inferInstance, P.gates, ?_⟩
   refine ⟨?_, ⟨(Ideal.quotientKerAlgEquivOfSurjective hsurj).symm.trans
     ((Ideal.quotientEquivAlgOfEq R hI.symm).trans
@@ -1243,11 +1243,11 @@ variable {J R S : Type u} [Category.{u} J] [Fintype J]
   [∀ j, DecidableEq (V j)]
 variable (D : CircuitDiagram (J := J) (R := R) (V := V) (Q := Q))
 
-abbrev MatrixIndex (i : J) := GateSystem.Index (D.Wire i) (D.Wire i)
+abbrev MatrixIndex (i : J) := GateSystem.Index (D.Wire i) (D.Gate i)
 abbrev AmbientMatrix (i : J) (S : Type u) :=
   Matrix (D.MatrixIndex i ⊕ D.MatrixIndex i) (D.MatrixIndex i ⊕ D.MatrixIndex i) S
 abbrev OrbitRing (i : J) :=
-  MvPolynomial (GateSystem.OrbitCoord (D.Wire i) (D.Wire i)) R ⧸
+  MvPolynomial (GateSystem.OrbitCoord (D.Wire i) (D.Gate i)) R ⧸
     equationIdeal (D.gates i).orbitPolynomials
 
 /-- The actual linear arrow on all four blocks of the full ambient matrix space. -/
@@ -1301,7 +1301,7 @@ def orbitMap {i j} (α : i ⟶ j) : D.OrbitRing j →ₐ[R] D.OrbitRing i :=
         (universalSolution_satisfies _))))
 
 @[simp] theorem orbitMap_generator {i j} (α : i ⟶ j)
-    (v : GateSystem.OrbitCoord (D.Wire j) (D.Wire j)) :
+    (v : GateSystem.OrbitCoord (D.Wire j) (D.Gate j)) :
     D.orbitMap α (universalSolution (D.gates j).orbitPolynomials v) =
       D.ambientMap α (GateSystem.orbitMatrix
         (universalSolution (D.gates i).orbitPolynomials)) v.1 v.2 := by
@@ -1330,7 +1330,7 @@ theorem orbitUniversal_map {i j} (α : i ⟶ j) :
     (GateSystem.orbitMatrix (universalSolution (D.gates i).orbitPolynomials))
   exact congrFun (congrFun (h.trans hc) v.1) v.2
 
-abbrev AmbientRing (i : J) := MvPolynomial (GateSystem.OrbitCoord (D.Wire i) (D.Wire i)) R
+abbrev AmbientRing (i : J) := MvPolynomial (GateSystem.OrbitCoord (D.Wire i) (D.Gate i)) R
 
 /-- The coordinate pullback of the full ambient linear arrow. -/
 def ambientPolynomialMap {i j} (α : i ⟶ j) : D.AmbientRing j →ₐ[R] D.AmbientRing i :=

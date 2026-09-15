@@ -171,6 +171,10 @@ theorem affine_orbit_universality (k A : Type u)
                 StructureSheaf.toOpenₗ (GeneralLinearRing k n) (KaehlerTwoForms (GeneralLinearRing k n) k) ⊤
                   (-deRhamOne k (GeneralLinearRing k n) (generalLinearDeRhamBasis k n)
                     (maurerCartanPotential k n)) ∧
+            cellInclusion ≫ rankOpen.ι =
+              Spec.map (CommRingCat.ofHom (cellOrbitCoordinates k n).toRingHom) ∧
+            kaehlerSectionPullback k (CoordinateRing k n) (CellRing k n) (cellOrbitCoordinates k n)
+              (maximalRankOpen k n) ⊤ (fun q _ => cellOrbitCoordinates_mem_orbit k n q) ω = 0 ∧
             (∀ p : maximalRankOpen k n, Function.Bijective
               (exteriorGermEvaluation (CoordinateRing k n) k p.val (ω.val p))) := by
 
@@ -206,10 +210,34 @@ theorem affine_orbit_universality (k A : Type u)
       (fun e => ⟨orbitTangentChartIso k r.Index e, orbitTangentChartIso_over k r.Index e⟩),
       orbitKaehlerTwoForm k r.Index, orbitKaehlerTwoForm_chart k r.Index,
       orbitKaehlerTwoForm_closed k r.Index, orbitKaehlerTwoForm_closed_by_descent k r.Index,
-      orbitKaehlerPullback_eq_deRham k r.Index, orbitKaehlerTwoForm_perfect k r.Index⟩
+      orbitKaehlerPullback_eq_deRham k r.Index, cellMorphism_squareZero k r.Index,
+      cell_global_form_pullback_zero k r.Index, orbitKaehlerTwoForm_perfect k r.Index⟩
     intro D E
     rw [r.symplectic.local_formula]
     exact cellOrbitForm_specialize k r.Index D E
+
+/-- The polynomial compiler uses exactly one gate per multiplication node and size `s + 2m`. -/
+theorem polynomial_orbit_realization (k V Q : Type u) [CommRing k] [Fintype V] [Fintype Q]
+    (f : Q → MvPolynomial V k) :
+    letI := Classical.decEq k
+    letI := Classical.decEq V
+    let P := ExpressionPresentation.ofPolynomials f
+    let C := P.gates
+    Function.Injective C.output ∧
+    Set.range C.output = {t | ∃ a b, t.val = ArithmeticExpr.mul a b} ∧
+    Fintype.card (GateSystem.Index P.Wire P.Gate) = P.nodes.card + 2 * Fintype.card P.Gate ∧
+    0 < Fintype.card (GateSystem.Index P.Wire P.Gate) ∧
+    (∀ q, (C.orbitAffinePolynomials q).totalDegree ≤ 1) ∧
+    equationIdeal C.orbitPolynomials = equationIdeal C.orbitAffinePolynomials ⊔
+      squareZeroIdeal k (GateSystem.Index P.Wire P.Gate) ∧
+    Nonempty ((MvPolynomial V k ⧸ equationIdeal f) ≃ₐ[k]
+      (MvPolynomial (GateSystem.OrbitCoord P.Wire P.Gate) k ⧸ equationIdeal C.orbitPolynomials)) := by
+  classical
+  let P := ExpressionPresentation.ofPolynomials f
+  exact ⟨P.gates_output_injective, P.gates_output_range, P.card_index,
+    ExpressionPresentation.polynomialIndex_card_pos f, P.gates.orbitAffinePolynomials_totalDegree,
+    P.gates.orbitSectionIdeal_eq_squareZero,
+    ⟨(ExpressionPresentation.polynomialMatrixCoordinateAlgEquiv f).trans P.gates.orbitCoordinateAlgEquiv⟩⟩
 
 /-- The maximal-rank square-zero scheme represents `GL(2n)/Stab(J)` as an fppf sheaf quotient. -/
 theorem homogeneous_space_quotient (k n : Type u)
@@ -411,7 +439,13 @@ theorem orbit_global_symplectic_form (k n : Type u)
         ∀ D E, E.liftKaehlerDifferential (contraction D) =
           exteriorGermEvaluation (CoordinateRing k n) k p.val (ω.val p) D E) ∧
 
-      -- Zero pullback in the canonical exterior square, along the cell's coordinate homomorphism
+      -- The global section itself pulls back to zero along the actual cell inclusion
+      cellMorphism k n ≫ (maximalRankOpen k n).ι =
+        Spec.map (CommRingCat.ofHom (cellOrbitCoordinates k n).toRingHom) ∧
+      kaehlerSectionPullback k (CoordinateRing k n) (CellRing k n) (cellOrbitCoordinates k n)
+        (maximalRankOpen k n) ⊤ (fun q _ => cellOrbitCoordinates_mem_orbit k n q) ω = 0 ∧
+
+      -- The same zero pullback in chart coordinates
       letI := cellChartAlgebra k n
       letI := IsScalarTower.of_algHom (cellChartEval k n)
       kaehlerExteriorMap (ChartRing k n) (CellRing k n) k
@@ -420,7 +454,8 @@ theorem orbit_global_symplectic_form (k n : Type u)
     orbitKaehlerTwoForm k n, permutationOpen_cover k n, orbitKaehlerTwoForm_evaluation k n,
     orbitKaehlerTwoForm_chart k n, (fun p e he => primeChartEvaluation_over k n p.val e he),
     ?_, orbitKaehlerTwoForm_closed k n, orbitKaehlerTwoForm_closed_by_descent k n,
-    orbitKaehlerPullback_eq_deRham k n, ?_, cell_kaehler_form_pullback_zero k n⟩
+    orbitKaehlerPullback_eq_deRham k n, ?_, cellMorphism_squareZero k n,
+    cell_global_form_pullback_zero k n, cell_kaehler_form_pullback_zero k n⟩
   · intro p
     rw [orbitKaehlerTwoForm_evaluation_point]
     exact orbitGlobalTwoForm_alternating k n p
@@ -434,7 +469,8 @@ end Universality
 open Lean Elab Command in
 run_cmd do
   let allowed : Array Name := #[``propext, ``Classical.choice, ``Quot.sound]
-  for name in #[``Universality.affine_orbit_universality, ``Universality.homogeneous_space_quotient,
+  for name in #[``Universality.affine_orbit_universality, ``Universality.polynomial_orbit_realization,
+      ``Universality.homogeneous_space_quotient,
       ``Universality.orbit_differential_geometry, ``Universality.orbit_global_symplectic_form] do
     let axioms ← collectAxioms name
     let unexpected := axioms.filter fun axiomName => !allowed.contains axiomName
@@ -442,6 +478,7 @@ run_cmd do
       throwError "{name} depends on unapproved axioms: {unexpected}"
 
 #print axioms Universality.affine_orbit_universality
+#print axioms Universality.polynomial_orbit_realization
 #print axioms Universality.homogeneous_space_quotient
 #print axioms Universality.orbit_differential_geometry
 #print axioms Universality.orbit_global_symplectic_form

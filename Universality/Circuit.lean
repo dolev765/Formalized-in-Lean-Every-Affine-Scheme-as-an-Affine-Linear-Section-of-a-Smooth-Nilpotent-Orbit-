@@ -246,6 +246,14 @@ variable {R V Q S : Type*} [CommRing R] [DecidableEq R] [DecidableEq V]
 variable [CommRing S] [Algebra R S]
 abbrev Wire (P : ExpressionPresentation R V Q) := {t // t ∈ P.nodes}
 
+/-- Multiplication nodes, with no gates for constants, variables, or additions. -/
+abbrev Gate (P : ExpressionPresentation R V Q) :=
+  {t : P.Wire // match t.val with | .mul _ _ => True | _ => False}
+
+noncomputable instance gateFintype (P : ExpressionPresentation R V Q) : Fintype P.Gate := by
+  classical
+  exact Subtype.fintype _
+
 def zeroWire (P : ExpressionPresentation R V Q) : P.Wire := ⟨.const 0, P.zero_mem⟩
 def input (P : ExpressionPresentation R V Q) (w : P.Wire → S) : V → S :=
   fun i => w ⟨.var i, P.var_mem i⟩
@@ -274,22 +282,39 @@ def nodeEquation (P : ExpressionPresentation R V Q) : P.Wire → AffineEquation 
         (AffineEquation.coordinate ⟨b, P.add_right_mem ht⟩))
   | ⟨.mul _ _, _⟩ => AffineEquation.zero
 
-def left (P : ExpressionPresentation R V Q) : P.Wire → P.Wire
-  | ⟨.mul a _, ht⟩ => ⟨a, P.mul_left_mem ht⟩
-  | _ => P.zeroWire
-def right (P : ExpressionPresentation R V Q) : P.Wire → P.Wire
-  | ⟨.mul _ b, ht⟩ => ⟨b, P.mul_right_mem ht⟩
-  | _ => P.zeroWire
-def output (P : ExpressionPresentation R V Q) : P.Wire → P.Wire
-  | ⟨.mul a b, ht⟩ => ⟨.mul a b, ht⟩
-  | _ => P.zeroWire
+def left (P : ExpressionPresentation R V Q) : P.Gate → P.Wire
+  | ⟨⟨.mul a _, ht⟩, _⟩ => ⟨a, P.mul_left_mem ht⟩
+def right (P : ExpressionPresentation R V Q) : P.Gate → P.Wire
+  | ⟨⟨.mul _ b, ht⟩, _⟩ => ⟨b, P.mul_right_mem ht⟩
+def output (P : ExpressionPresentation R V Q) (g : P.Gate) : P.Wire := g.val
 
 /-- Expression trees compiled to finite affine rows and multiplication triples. -/
-def gates (P : ExpressionPresentation R V Q) : GateSystem R P.Wire P.Wire (P.Wire ⊕ Q) where
+def gates (P : ExpressionPresentation R V Q) : GateSystem R P.Wire P.Gate (P.Wire ⊕ Q) where
   left := P.left
   right := P.right
   output := P.output
   equations := Sum.elim P.nodeEquation (fun q => AffineEquation.coordinate ⟨P.roots q, P.root_mem q⟩)
+
+theorem gates_output_injective (P : ExpressionPresentation R V Q) :
+    Function.Injective P.gates.output := Subtype.val_injective
+
+theorem gates_output_range (P : ExpressionPresentation R V Q) :
+    Set.range P.gates.output = {t | ∃ a b, t.val = ArithmeticExpr.mul a b} := by
+  ext ⟨t, ht⟩
+  constructor
+  · rintro ⟨⟨⟨s, hs⟩, hm⟩, h⟩
+    cases s with
+    | mul a b => exact ⟨a, b, (congrArg Subtype.val h).symm⟩
+    | const c => exact False.elim hm
+    | var i => exact False.elim hm
+    | add a b => exact False.elim hm
+  · rintro ⟨a, b, rfl⟩
+    exact ⟨⟨⟨.mul a b, ht⟩, trivial⟩, rfl⟩
+
+/-- The matrix size is the number of wires plus twice the number of multiplication nodes. -/
+theorem card_index (P : ExpressionPresentation R V Q) :
+    Fintype.card (GateSystem.Index P.Wire P.Gate) = P.nodes.card + 2 * Fintype.card P.Gate := by
+  rw [GateSystem.card_index, Fintype.card_coe]
 
 theorem extend_satisfies (P : ExpressionPresentation R V Q) (x : V → S)
     (hx : ∀ q, (P.roots q).eval x = 0) : P.gates.Satisfies (P.extend x) := by
@@ -300,8 +325,12 @@ theorem extend_satisfies (P : ExpressionPresentation R V Q) (x : V → S)
       rcases t with ⟨t, ht⟩
       cases t <;> simp [gates, nodeEquation, extend, ArithmeticExpr.eval]
     | inr q => simpa [gates, extend] using hx q
-  · rintro ⟨t, ht⟩
-    cases t <;> simp [gates, output, left, right, zeroWire, extend, ArithmeticExpr.eval]
+  · rintro ⟨⟨t, ht⟩, hm⟩
+    cases t with
+    | mul a b => rfl
+    | const c => exact False.elim hm
+    | var i => exact False.elim hm
+    | add a b => exact False.elim hm
 
 /-- Every internal wire is forced, even over arbitrary nonreduced algebras. -/
 theorem wire_forced (P : ExpressionPresentation R V Q) (w : P.Wire → S)
@@ -319,7 +348,7 @@ theorem wire_forced (P : ExpressionPresentation R V Q) (w : P.Wire → S)
     rw [h, ha (P.add_left_mem ht), hb (P.add_right_mem ht)]
     rfl
   | mul a b ha hb =>
-    have h := hw.2 ⟨.mul a b, ht⟩
+    have h := hw.2 ⟨⟨.mul a b, ht⟩, trivial⟩
     change w ⟨.mul a b, ht⟩ = w ⟨a, P.mul_left_mem ht⟩ * w ⟨b, P.mul_right_mem ht⟩ at h
     rw [h, ha (P.mul_left_mem ht), hb (P.mul_right_mem ht)]
     rfl
@@ -386,10 +415,10 @@ variable {S : Type*} [CommRing S] [Algebra R S]
 /-- Full finite polynomial-system reconstruction in one matrix-square graph. -/
 def polynomialSolutionEquiv (f : Q → MvPolynomial V R) :
     {x : V → S // ∀ q, MvPolynomial.eval₂ (algebraMap R S) x (f q) = 0} ≃
-    {p : Matrix (GateSystem.Index (ofPolynomials f).Wire (ofPolynomials f).Wire)
-        (GateSystem.Index (ofPolynomials f).Wire (ofPolynomials f).Wire) S ×
-      Matrix (GateSystem.Index (ofPolynomials f).Wire (ofPolynomials f).Wire)
-        (GateSystem.Index (ofPolynomials f).Wire (ofPolynomials f).Wire) S //
+    {p : Matrix (GateSystem.Index (ofPolynomials f).Wire (ofPolynomials f).Gate)
+        (GateSystem.Index (ofPolynomials f).Wire (ofPolynomials f).Gate) S ×
+      Matrix (GateSystem.Index (ofPolynomials f).Wire (ofPolynomials f).Gate)
+        (GateSystem.Index (ofPolynomials f).Wire (ofPolynomials f).Gate) S //
       (ofPolynomials f).gates.LinearSection p.1 p.2 ∧ p.2 = p.1 * p.1} :=
   (Equiv.subtypeEquivRight (fun x => by
     simp only [← ArithmeticExpr.eval_polynomial, ofPolynomials_roots])).trans
@@ -848,10 +877,12 @@ def ofPolynomials (f : ∀ j, Q j → MvPolynomial (V j) R)
   exact ExpressionPresentation.ofPolynomials_roots _ _
 
 abbrev Wire (i : J) := Coordinate (fun j => (D.presentation j).Wire) i
+abbrev Gate (i : J) := Coordinate (fun j => (D.presentation j).Gate) i
 instance wireDecidableEq (i : J) : DecidableEq (D.Wire i) := Classical.decEq _
+instance gateDecidableEq (i : J) : DecidableEq (D.Gate i) := Classical.decEq _
 
 omit [(j : J) → Fintype (V j)] [(j : J) → Fintype (Q j)] in
-theorem index_card_pos (i : J) : 0 < Fintype.card (GateSystem.Index (D.Wire i) (D.Wire i)) := by
+theorem index_card_pos (i : J) : 0 < Fintype.card (GateSystem.Index (D.Wire i) (D.Gate i)) := by
   apply Fintype.card_pos_iff.mpr
   exact ⟨Sum.inl ⟨i, 𝟙 i, (D.presentation i).zeroWire⟩⟩
 abbrev LocalRow (i : J) := Coordinate (fun j => (D.presentation j).Wire ⊕ Q j) i
@@ -866,7 +897,7 @@ def variableWire (j : J) (v : V j) : (D.presentation j).Wire :=
 
 /-- Every local circuit is copied along every outgoing arrow, together with all
 composable-pair equations identifying arrow inputs with their polynomial lifts. -/
-def gates (i : J) : GateSystem R (D.Wire i) (D.Wire i) (D.Row i) := by
+def gates (i : J) : GateSystem R (D.Wire i) (D.Gate i) (D.Row i) := by
   classical
   exact {
     left := fun c => D.copy c.2.1 ((D.presentation c.1).left c.2.2)
@@ -1003,6 +1034,20 @@ theorem input_projection {i j} (α : i ⟶ j) (w : D.Wire i → S)
 def wireMap {i j} (α : i ⟶ j) : D.Wire j → D.Wire i :=
   fun c => D.copy (α ≫ c.2.1) c.2.2
 
+def gateMap {i j} (α : i ⟶ j) : D.Gate j → D.Gate i :=
+  fun c => ⟨c.1, α ≫ c.2.1, c.2.2⟩
+
+omit [Fintype J] [(i j : J) → Fintype (i ⟶ j)] [(j : J) → Fintype (V j)] [(j : J) → Fintype (Q j)] in
+@[simp] theorem gateMap_id (i : J) : D.gateMap (𝟙 i) = id := by
+  funext ⟨j, α, t⟩
+  simp [gateMap]
+
+omit [Fintype J] [(i j : J) → Fintype (i ⟶ j)] [(j : J) → Fintype (V j)] [(j : J) → Fintype (Q j)] in
+@[simp] theorem gateMap_comp {i j k} (α : i ⟶ j) (β : j ⟶ k) :
+    D.gateMap α ∘ D.gateMap β = D.gateMap (α ≫ β) := by
+  funext ⟨l, γ, t⟩
+  simp [gateMap, Category.assoc]
+
 omit [Fintype J] [(i j : J) → Fintype (i ⟶ j)] [(j : J) → Fintype (V j)] [(j : J) → Fintype (Q j)] in
 @[simp] theorem wireMap_id (i : J) : D.wireMap (𝟙 i) = id := by
   funext ⟨j, α, t⟩
@@ -1017,9 +1062,9 @@ omit [Fintype J] [(i j : J) → Fintype (i ⟶ j)] [(j : J) → Fintype (V j)] [
 /-- Strict linear maps on the entire compiler matrix spaces, including collisions
 of arrow indices in arbitrary finite categories. -/
 def matrixMap {i j} (α : i ⟶ j) :
-    Matrix (GateSystem.Index (D.Wire i) (D.Wire i)) (GateSystem.Index (D.Wire i) (D.Wire i)) S →ₗ[S]
-      Matrix (GateSystem.Index (D.Wire j) (D.Wire j)) (GateSystem.Index (D.Wire j) (D.Wire j)) S :=
-  GateSystem.matrixPullback (D.wireMap α) (D.wireMap α)
+    Matrix (GateSystem.Index (D.Wire i) (D.Gate i)) (GateSystem.Index (D.Wire i) (D.Gate i)) S →ₗ[S]
+      Matrix (GateSystem.Index (D.Wire j) (D.Gate j)) (GateSystem.Index (D.Wire j) (D.Gate j)) S :=
+  GateSystem.matrixPullback (D.wireMap α) (D.gateMap α)
 
 omit [Algebra R S] [Fintype J] [(i j : J) → Fintype (i ⟶ j)]
   [(j : J) → Fintype (V j)] [(j : J) → Fintype (Q j)] in
@@ -1030,7 +1075,7 @@ omit [Algebra R S] [Fintype J] [(i j : J) → Fintype (i ⟶ j)]
   [(j : J) → Fintype (V j)] [(j : J) → Fintype (Q j)] in
 @[simp] theorem matrixMap_comp {i j k} (α : i ⟶ j) (β : j ⟶ k) :
     (D.matrixMap (S := S) β).comp (D.matrixMap α) = D.matrixMap (α ≫ β) := by
-  rw [matrixMap, matrixMap, GateSystem.matrixPullback_comp, wireMap_comp]
+  rw [matrixMap, matrixMap, GateSystem.matrixPullback_comp, wireMap_comp, gateMap_comp]
   rfl
 
 omit [Fintype J] [(i j : J) → Fintype (i ⟶ j)] [Algebra R S] [(j : J) → Fintype (V j)] [(j : J) → Fintype (Q j)] in
@@ -1043,7 +1088,7 @@ theorem matrixMap_assemble {i j} (α : i ⟶ j) (w : D.Wire i → S) :
       (D.gates j).assemble (projection S (fun j => (D.presentation j).Wire) α w) := by
   classical
   exact GateSystem.matrixPullback_assemble (D.gates i) (D.gates j)
-    (D.wireMap α) (D.wireMap α) (fun _ => rfl) (fun _ => rfl) w
+    (D.wireMap α) (D.gateMap α) (fun _ => rfl) (fun _ => rfl) w
 
 omit [Algebra R S] [(j : J) → Fintype (V j)] [(j : J) → Fintype (Q j)] in
 theorem matrixMap_assemble_square {i j} (α : i ⟶ j) (w : D.Wire i → S) :
@@ -1052,7 +1097,7 @@ theorem matrixMap_assemble_square {i j} (α : i ⟶ j) (w : D.Wire i → S) :
         (D.gates j).assemble (projection S (fun j => (D.presentation j).Wire) α w) := by
   classical
   exact GateSystem.matrixPullback_assemble_square (D.gates i) (D.gates j)
-    (D.wireMap α) (D.wireMap α) (fun _ => rfl) (fun _ => rfl) w
+    (D.wireMap α) (D.gateMap α) (fun _ => rfl) (fun _ => rfl) w
 
 /-- No stabilization: each object is exactly its finite matrix-square section. -/
 def matrixSolutionEquiv (h : D.Laws (S := S)) (i : J) := by
