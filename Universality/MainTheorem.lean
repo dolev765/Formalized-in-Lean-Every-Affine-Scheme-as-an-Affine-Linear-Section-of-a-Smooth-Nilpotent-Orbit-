@@ -179,15 +179,54 @@ theorem affine_orbit_universality (k A : Type u)
     rw [r.symplectic.local_formula]
     exact cellOrbitForm_specialize k r.Index D E
 
+/-- The maximal-rank square-zero scheme represents `GL(2n)/Stab(J)` as an fppf sheaf quotient. -/
+theorem homogeneous_space_quotient (k n : Type u)
+    [CommRing k] [Fintype n] [DecidableEq n] :
+
+    -- The explicit stabilizer subgroup
+    (∀ (S : Type u) [CommRing S] (g : (Matrix (n ⊕ n) (n ⊕ n) S)ˣ),
+      g ∈ jordanStabilizer n S ↔
+        ∃ P Q : Matrix n n S, IsUnit P ∧ g.val = Matrix.fromBlocks P Q 0 P) ∧
+
+    -- The actual general linear scheme and its usual cosets on every test scheme
+    (∀ T : Scheme.{u}, Nonempty ((T ⟶ generalLinearScheme k n) ≃
+      (k →+* Γ(T, ⊤)) × (Matrix (n ⊕ n) (n ⊕ n) Γ(T, ⊤))ˣ)) ∧
+    (∀ T : Scheme.{u}, Nonempty ((homogeneousCosets k n).obj (Opposite.op T) ≃
+      (k →+* Γ(T, ⊤)) ×
+        ((Matrix (n ⊕ n) (n ⊕ n) Γ(T, ⊤))ˣ ⧸ jordanStabilizer n Γ(T, ⊤)))) ∧
+
+    -- The quotient map is induced by the actual conjugation morphism
+    (∀ (T : Scheme.{u}) (g : T ⟶ generalLinearScheme k n),
+      (homogeneousQuotientMap k n).app (Opposite.op T) (Quotient.mk _ g) =
+        g ≫ orbitProjection k n) ∧
+    (∀ (T : Scheme.{u}) (g : T ⟶ generalLinearScheme k n),
+      (universalMatrix k n).map (affineCoordinates (g ≫ conjugationToSquareZero k n)) =
+        (pointConjugator k n g).val * jordanCell * (pointConjugator k n g).inv) ∧
+
+    -- Representability and the universal property of the fppf sheaf quotient
+    Presieve.IsSheaf Scheme.fppfTopology (yoneda.obj (maximalRankScheme k n)) ∧
+    (∀ (F : Scheme.{u}ᵒᵖ ⥤ Type u) (_ : Presieve.IsSheaf Scheme.fppfTopology F)
+      (f : homogeneousCosets k n ⟶ F),
+      ∃! g : yoneda.obj (maximalRankScheme k n) ⟶ F,
+        homogeneousQuotientMap k n ≫ g = f) :=
+  ⟨(fun S _ g => mem_jordanStabilizer_iff n g),
+    (fun T => ⟨generalLinearHomEquiv k n T⟩),
+    (fun T => ⟨homogeneousCosetsEquiv k n T⟩),
+    (fun T g => homogeneousQuotientMap_mk k n g),
+    (fun T g => conjugation_coordinates k n g),
+    orbit_fppf_isSheaf k n, homogeneousQuotient_fppf_universal k n⟩
+
 end
 end Universality
 
 open Lean Elab Command in
 run_cmd do
   let allowed : Array Name := #[``propext, ``Classical.choice, ``Quot.sound]
-  let axioms ← collectAxioms ``Universality.affine_orbit_universality
-  let unexpected := axioms.filter fun name => !allowed.contains name
-  unless unexpected.isEmpty do
-    throwError "Main theorem depends on unapproved axioms: {unexpected}"
+  for name in #[``Universality.affine_orbit_universality, ``Universality.homogeneous_space_quotient] do
+    let axioms ← collectAxioms name
+    let unexpected := axioms.filter fun axiomName => !allowed.contains axiomName
+    unless unexpected.isEmpty do
+      throwError "{name} depends on unapproved axioms: {unexpected}"
 
 #print axioms Universality.affine_orbit_universality
+#print axioms Universality.homogeneous_space_quotient

@@ -11,6 +11,10 @@ import Mathlib.RingTheory.Smooth.Basic
 import Mathlib.Algebra.Category.CommAlgCat.Basic
 import Mathlib.RingTheory.FinitePresentation
 import Mathlib.Algebra.Category.Ring.Constructions
+import Mathlib.AlgebraicGeometry.Sites.BigZariski
+import Mathlib.AlgebraicGeometry.Sites.Fpqc
+import Mathlib.CategoryTheory.Sites.Subsheaf
+import Mathlib.GroupTheory.Coset.Basic
 
 namespace Universality
 noncomputable section
@@ -1606,3 +1610,579 @@ end FiniteDiagram
 
 end
 end Universality
+
+namespace Universality.SquareZeroGeometry
+noncomputable section
+open CategoryTheory Limits AlgebraicGeometry Opposite MvPolynomial
+set_option backward.isDefEq.respectTransparency false
+universe u
+variable (R n : Type u) [CommRing R] [Fintype n] [DecidableEq n]
+
+/-- Coordinate algebra of `GL(2n)` over the specified base. -/
+abbrev GeneralLinearRing := Localization.Away (genericMatrix R n).det
+
+def generalLinearScheme : Scheme := Spec (.of (GeneralLinearRing R n))
+
+def generalLinearMatrix : Matrix (n ⊕ n) (n ⊕ n) (GeneralLinearRing R n) :=
+  (genericMatrix R n).map (algebraMap (AmbientRing R n) (GeneralLinearRing R n))
+
+theorem generalLinearMatrix_isUnit : IsUnit (generalLinearMatrix R n).det := by
+  have hd : algebraMap (AmbientRing R n) (GeneralLinearRing R n) (genericMatrix R n).det =
+      (generalLinearMatrix R n).det :=
+    (algebraMap (AmbientRing R n) (GeneralLinearRing R n)).map_det _
+  rw [← hd]
+  exact IsLocalization.Away.algebraMap_isUnit _
+
+def generalLinearUnit : (Matrix (n ⊕ n) (n ⊕ n) (GeneralLinearRing R n))ˣ :=
+  Matrix.nonsingInvUnit _ (generalLinearMatrix_isUnit R n)
+
+def conjugateJordan {S : Type*} [CommRing S]
+    (g : (Matrix (n ⊕ n) (n ⊕ n) S)ˣ) : Matrix (n ⊕ n) (n ⊕ n) S :=
+  g.val * jordanCell * g.inv
+
+theorem conjugateJordan_square {S : Type*} [CommRing S]
+    (g : (Matrix (n ⊕ n) (n ⊕ n) S)ˣ) :
+    conjugateJordan n g * conjugateJordan n g = 0 :=
+  orbit_square_zero ⟨g.val, g.inv, g.val_inv, g.inv_val, rfl⟩
+
+omit [Fintype n] in
+@[simp] theorem map_jordanCell {S T : Type*} [CommRing S] [CommRing T] (f : S →+* T) :
+    (jordanCell : Matrix (n ⊕ n) (n ⊕ n) S).map f = jordanCell := by
+  simp [jordanCell, Matrix.fromBlocks_map]
+
+theorem map_conjugateJordan {S T : Type*} [CommRing S] [CommRing T]
+    (f : S →+* T) (g : (Matrix (n ⊕ n) (n ⊕ n) S)ˣ) :
+    (conjugateJordan n g).map f =
+      conjugateJordan n (Units.map f.mapMatrix.toMonoidHom g) := by
+  simp [conjugateJordan, Matrix.map_mul]
+
+/-- The conjugation morphism is defined by the universal invertible matrix. -/
+def orbitPolynomialMap : AmbientRing R n →ₐ[R] GeneralLinearRing R n :=
+  aeval (fun ij => conjugateJordan n (generalLinearUnit R n) ij.1 ij.2)
+
+theorem orbitPolynomialMap_matrix :
+    (genericMatrix R n).map (orbitPolynomialMap R n) =
+      conjugateJordan n (generalLinearUnit R n) := by
+  ext i j
+  simp [genericMatrix, orbitPolynomialMap]
+
+def orbitCoordinateMap : CoordinateRing R n →ₐ[R] GeneralLinearRing R n :=
+  Ideal.Quotient.liftₐ _ (orbitPolynomialMap R n) (by
+    change squareZeroIdeal R n ≤ RingHom.ker (orbitPolynomialMap R n).toRingHom
+    apply Ideal.span_le.mpr
+    rintro _ ⟨⟨i, j⟩, rfl⟩
+    have h : (genericMatrix R n * genericMatrix R n).map (orbitPolynomialMap R n) = 0 := by
+      rw [Matrix.map_mul, orbitPolynomialMap_matrix]
+      exact conjugateJordan_square n _
+    exact congrFun (congrFun h i) j)
+
+def conjugationToSquareZero : generalLinearScheme R n ⟶ squareZeroScheme R n :=
+  Spec.map (CommRingCat.ofHom (orbitCoordinateMap R n).toRingHom)
+
+theorem orbitCoordinateMap_matrix :
+    (universalMatrix R n).map (orbitCoordinateMap R n) =
+      conjugateJordan n (generalLinearUnit R n) := by
+  ext i j
+  simp [universalMatrix, genericMatrix, orbitCoordinateMap, orbitPolynomialMap]
+
+def generalLinearEval {S : Type u} [CommRing S] [Algebra R S]
+    (g : (Matrix (n ⊕ n) (n ⊕ n) S)ˣ) : GeneralLinearRing R n →ₐ[R] S :=
+  awayLift R (genericMatrix R n).det (aeval (fun ij => g.val ij.1 ij.2)) (by
+    have hm : (genericMatrix R n).map (aeval (fun ij => g.val ij.1 ij.2) :
+        AmbientRing R n →ₐ[R] S) = g.val := by
+      ext i j
+      simp [genericMatrix]
+    have hd : (aeval (fun ij => g.val ij.1 ij.2) : AmbientRing R n →ₐ[R] S)
+        (genericMatrix R n).det = g.val.det :=
+      (AlgHom.map_det _ _).trans (congrArg Matrix.det hm)
+    rw [hd]
+    exact (Matrix.isUnit_iff_isUnit_det _).mp g.isUnit)
+
+theorem generalLinearEval_matrix {S : Type u} [CommRing S] [Algebra R S]
+    (g : (Matrix (n ⊕ n) (n ⊕ n) S)ˣ) :
+    (generalLinearMatrix R n).map (generalLinearEval R n g) = g.val := by
+  ext i j
+  simp [generalLinearMatrix, genericMatrix, generalLinearEval, awayLift_algebraMap]
+
+theorem generalLinearEval_unit {S : Type u} [CommRing S] [Algebra R S]
+    (g : (Matrix (n ⊕ n) (n ⊕ n) S)ˣ) :
+    Units.map (generalLinearEval R n g).toRingHom.mapMatrix.toMonoidHom
+      (generalLinearUnit R n) = g := by
+  apply Units.ext
+  exact generalLinearEval_matrix R n g
+
+/-- A regular local section of conjugation on each explicit orbit chart. -/
+def chartConjugator (e : Equiv.Perm (n ⊕ n)) :
+    (Matrix (n ⊕ n) (n ⊕ n) (ChartRing R n))ˣ where
+  val := (generalChartBasis (chartA R n) (Matrix.nonsingInvUnit _ (chartT_isUnit R n))).submatrix e.symm id
+  inv := (generalChartBasisInv (chartA R n) (Matrix.nonsingInvUnit _ (chartT_isUnit R n))).submatrix id e.symm
+  val_inv := by
+    rw [← Matrix.submatrix_mul _ _ _ id _ Function.bijective_id,
+      generalChartBasis_mul_inv]
+    exact Matrix.submatrix_one_equiv _
+  inv_val := by
+    rw [Matrix.submatrix_mul_equiv, generalChartBasis_inv_mul]
+    rfl
+
+theorem chartConjugator_conjugation (e : Equiv.Perm (n ⊕ n)) :
+    conjugateJordan n (chartConjugator R n e) =
+      (generalChart (chartA R n) (chartT R n)).submatrix e.symm e.symm := by
+  unfold conjugateJordan chartConjugator
+  dsimp only
+  have hJ : (jordanCell : Matrix (n ⊕ n) (n ⊕ n) (ChartRing R n)) =
+      jordanCell.submatrix id id := rfl
+  conv_lhs => arg 1; arg 2; rw [hJ]
+  rw [← Matrix.submatrix_mul _ _ _ id _ Function.bijective_id,
+    ← Matrix.submatrix_mul _ _ _ id _ Function.bijective_id,
+    generalChart_conjugation]
+  rfl
+
+def chartSection (e : Equiv.Perm (n ⊕ n)) :
+    Spec (.of (ChartRing R n)) ⟶ generalLinearScheme R n :=
+  Spec.map (CommRingCat.ofHom (generalLinearEval R n (chartConjugator R n e)).toRingHom)
+
+theorem permutationChartEmbedding_matrix (e : Equiv.Perm (n ⊕ n)) :
+    (universalMatrix R n).map (permutationChartEmbedding R n e) =
+      (generalChart (chartA R n) (chartT R n)).submatrix e.symm e.symm := by
+  ext i j
+  simp [universalMatrix, genericMatrix, permutationChartEmbedding, permuteCoordinate,
+    permuteAmbient, toChartBase, chartAmbientEval]
+
+set_option maxHeartbeats 800000 in
+theorem chartSection_conjugation (e : Equiv.Perm (n ⊕ n)) :
+    chartSection R n e ≫ conjugationToSquareZero R n =
+      (permutationChartIso R n e).inv ≫ (permutationOpen R n e).ι := by
+  have he : (generalLinearEval R n (chartConjugator R n e)).comp
+      (orbitCoordinateMap R n) = permutationChartEmbedding R n e := by
+    apply quotientAlgHom_ext
+    intro ij
+    have hm := congrArg (fun M : Matrix (n ⊕ n) (n ⊕ n) (ChartRing R n) => M ij.1 ij.2)
+      (calc
+        ((universalMatrix R n).map (orbitCoordinateMap R n)).map
+            (generalLinearEval R n (chartConjugator R n e)) =
+            (universalMatrix R n).map (permutationChartEmbedding R n e) := by
+          rw [orbitCoordinateMap_matrix]
+          change (conjugateJordan n (generalLinearUnit R n)).map
+              (generalLinearEval R n (chartConjugator R n e)).toRingHom = _
+          rw [map_conjugateJordan, generalLinearEval_unit,
+            chartConjugator_conjugation, permutationChartEmbedding_matrix])
+    exact hm
+  rw [permutationChartIso_inv_ι]
+  change Spec.map _ ≫ Spec.map _ = Spec.map _
+  rw [← Spec.map_comp, ← CommRingCat.ofHom_comp]
+  exact congrArg (fun f : CoordinateRing R n →ₐ[R] ChartRing R n =>
+    Spec.map (CommRingCat.ofHom f.toRingHom)) he
+
+theorem conjugationToSquareZero_mem_maximalRank (p : generalLinearScheme R n) :
+    conjugationToSquareZero R n p ∈ maximalRankOpen R n := by
+  let p' : PrimeSpectrum (GeneralLinearRing R n) := p
+  let φ := algebraMap (GeneralLinearRing R n) p'.asIdeal.ResidueField
+  let g := Units.map φ.mapMatrix.toMonoidHom (generalLinearUnit R n)
+  have h := (inJordanOrbit_iff_square_zero_rank (conjugateJordan n g)).mp
+    ⟨g.val, g.inv, g.val_inv, g.inv_val, rfl⟩
+  obtain ⟨e, he⟩ := square_zero_exists_invertible_coordinate_chart _ h.1 h.2
+  apply permutationOpen_le_maximalRank R n e
+  change (orbitCoordinateMap R n) ((universalMatrix R n).submatrix e e).toBlocks₁₂.det ∉
+    p'.asIdeal
+  intro hmem
+  have hz := Ideal.algebraMap_residueField_eq_zero.mpr hmem
+  have hm : ((universalMatrix R n).map ((φ.comp (orbitCoordinateMap R n).toRingHom))).submatrix e e =
+      (conjugateJordan n g).submatrix e e := by
+    change (((universalMatrix R n).map (orbitCoordinateMap R n)).map φ).submatrix e e = _
+    rw [orbitCoordinateMap_matrix, map_conjugateJordan]
+  have hd : φ ((orbitCoordinateMap R n)
+      ((universalMatrix R n).submatrix e e).toBlocks₁₂.det) =
+      ((conjugateJordan n g).submatrix e e).toBlocks₁₂.det := by
+    exact ((φ.comp (orbitCoordinateMap R n).toRingHom).map_det _).trans
+      (congrArg (fun M => M.toBlocks₁₂.det) hm)
+  rw [hd] at hz
+  rw [hz] at he
+  exact not_isUnit_zero he
+
+/-- The actual morphism `GL(2n) → O`, not merely a map of field-valued points. -/
+def orbitProjection : generalLinearScheme R n ⟶ maximalRankScheme R n := by
+  change generalLinearScheme R n ⟶ (maximalRankOpen R n).toScheme
+  exact IsOpenImmersion.lift (maximalRankOpen R n).ι (conjugationToSquareZero R n) (by
+    rw [Scheme.Opens.range_ι]
+    rintro _ ⟨p, rfl⟩
+    exact conjugationToSquareZero_mem_maximalRank R n p)
+
+@[reassoc (attr := simp)] theorem orbitProjection_ι :
+    orbitProjection R n ≫ (maximalRankOpen R n).ι = conjugationToSquareZero R n :=
+  IsOpenImmersion.lift_fac _ _ _
+
+theorem orbitChartSection (e : Equiv.Perm (n ⊕ n)) :
+    (orbitChartIso R n e).hom ≫ chartSection R n e ≫ orbitProjection R n =
+      (orbitChartOpen R n e).ι := by
+  apply (cancel_mono (maximalRankOpen R n).ι).mp
+  rw [Category.assoc, Category.assoc, orbitProjection_ι,
+    chartSection_conjugation, ← Category.assoc]
+  simp only [orbitChartIso, Iso.trans_hom, Category.assoc, Iso.hom_inv_id_assoc]
+  exact Scheme.Opens.isoOfLE_hom_ι (permutationOpen_le_maximalRank R n e)
+
+/-- The presheaf image of the conjugation morphism. Its fibres are identified below with
+right cosets of the explicitly computed stabilizer. -/
+def conjugationImage : Subfunctor (yoneda.obj (squareZeroScheme R n)) :=
+  Subfunctor.range (yoneda.map (conjugationToSquareZero R n))
+
+def orbitImage : Subfunctor (yoneda.obj (squareZeroScheme R n)) :=
+  Subfunctor.range (yoneda.map (maximalRankOpen R n).ι)
+
+theorem conjugationImage_le_orbitImage : conjugationImage R n ≤ orbitImage R n := by
+  intro T f hf
+  obtain ⟨g, rfl⟩ := hf
+  exact ⟨g ≫ orbitProjection R n, by simp⟩
+
+theorem orbitImage_isSheaf :
+    Presieve.IsSheaf Scheme.zariskiTopology (orbitImage R n).toFunctor :=
+  Presieve.isSheaf_iso _ (asIso (Subfunctor.toRange (yoneda.map (maximalRankOpen R n).ι)))
+    (GrothendieckTopology.Subcanonical.isSheaf_of_isRepresentable _)
+
+/-- Zariski sheafification of the conjugation image is represented by the actual orbit scheme. -/
+theorem conjugationImage_sheafify :
+    (conjugationImage R n).sheafify Scheme.zariskiTopology = orbitImage R n := by
+  apply le_antisymm
+  · exact (conjugationImage R n).sheafify_le (orbitImage R n) (conjugationImage_le_orbitImage R n)
+      (GrothendieckTopology.Subcanonical.isSheaf_of_isRepresentable _)
+      (orbitImage_isSheaf R n)
+  · have hid : (maximalRankOpen R n).ι ∈
+        ((conjugationImage R n).sheafify Scheme.zariskiTopology).obj
+          (op (maximalRankScheme R n)) := by
+      apply Scheme.mem_grothendieckTopology_iff.mpr
+      refine ⟨orbitOpenCover R n, ?_⟩
+      rintro T f ⟨e⟩
+      refine ⟨(orbitChartIso R n e).hom ≫ chartSection R n e, ?_⟩
+      change ((orbitChartIso R n e).hom ≫ chartSection R n e) ≫
+          conjugationToSquareZero R n = (orbitChartOpen R n e).ι ≫ (maximalRankOpen R n).ι
+      rw [← orbitProjection_ι, ← Category.assoc, Category.assoc _ (chartSection R n e),
+        orbitChartSection]
+    intro T f hf
+    obtain ⟨g, rfl⟩ := hf
+    exact ((conjugationImage R n).sheafify Scheme.zariskiTopology).map g.op hid
+
+def conjugationSheafIso :
+    ((conjugationImage R n).sheafify Scheme.zariskiTopology).toFunctor ≅
+      yoneda.obj (maximalRankScheme R n) :=
+  eqToIso (congrArg Subfunctor.toFunctor (conjugationImage_sheafify R n)) ≪≫
+    (asIso (Subfunctor.toRange (yoneda.map (maximalRankOpen R n).ι))).symm
+
+/-- Pullback of affine coordinates along a morphism from an arbitrary test scheme. -/
+def affineCoordinates {S : Type u} [CommRing S] {T : Scheme.{u}}
+    (f : T ⟶ Spec (.of S)) : S →+* Γ(T, ⊤) :=
+  ((Scheme.ΓSpecIso (.of S)).inv ≫ f.appTop).hom
+
+theorem affineCoordinates_comp {S : Type u} [CommRing S] {T U : Scheme.{u}}
+    (f : T ⟶ U) (g : U ⟶ Spec (.of S)) :
+    affineCoordinates (f ≫ g) = f.appTop.hom.comp (affineCoordinates g) := by
+  ext s
+  simp [affineCoordinates]
+
+theorem affineCoordinates_specMap {S B : Type u} [CommRing S] [CommRing B]
+    {T : Scheme.{u}} (f : T ⟶ Spec (.of B)) (φ : S →+* B) :
+    affineCoordinates (f ≫ Spec.map (CommRingCat.ofHom φ)) =
+      (affineCoordinates f).comp φ := by
+  unfold affineCoordinates
+  rw [Scheme.Hom.comp_appTop, ← Category.assoc, ← Scheme.ΓSpecIso_inv_naturality]
+  rfl
+
+theorem affineCoordinates_injective {S : Type u} [CommRing S] {T : Scheme.{u}} :
+    Function.Injective (affineCoordinates (S := S) (T := T)) := by
+  intro f g h
+  apply ext_to_Spec
+  exact CommRingCat.hom_ext h
+
+def pointConjugator {T : Scheme.{u}} (f : T ⟶ generalLinearScheme R n) :
+    (Matrix (n ⊕ n) (n ⊕ n) Γ(T, ⊤))ˣ :=
+  Units.map (affineCoordinates f).mapMatrix.toMonoidHom (generalLinearUnit R n)
+
+def generalLinearBase {T : Scheme.{u}} (f : T ⟶ generalLinearScheme R n) : R →+* Γ(T, ⊤) :=
+  (affineCoordinates f).comp (algebraMap R (GeneralLinearRing R n))
+
+theorem generalLinearHom_ext {T : Scheme.{u}} {f g : T ⟶ generalLinearScheme R n}
+    (hb : generalLinearBase R n f = generalLinearBase R n g)
+    (hm : pointConjugator R n f = pointConjugator R n g) : f = g := by
+  apply affineCoordinates_injective
+  apply IsLocalization.ringHom_ext (Submonoid.powers (genericMatrix R n).det)
+  apply MvPolynomial.ringHom_ext
+  · intro r
+    exact DFunLike.congr_fun hb r
+  · intro ij
+    exact congrArg (fun h : (Matrix (n ⊕ n) (n ⊕ n) Γ(T, ⊤))ˣ => h.val ij.1 ij.2) hm
+
+@[simp] theorem affineCoordinates_toSpec {S : Type u} [CommRing S] (T : Scheme.{u})
+    (φ : S →+* Γ(T, ⊤)) :
+    affineCoordinates (T.toSpecΓ ≫ Spec.map (CommRingCat.ofHom φ)) = φ := by
+  rw [affineCoordinates_specMap]
+  change (((Scheme.ΓSpecIso Γ(T, ⊤)).inv ≫ T.toSpecΓ.appTop).hom).comp φ = φ
+  rw [Scheme.toSpecΓ_appTop, Iso.inv_hom_id]
+  rfl
+
+/-- This affine scheme represents invertible matrices over the global functions of every
+test scheme, together with its morphism to the specified base. -/
+def generalLinearHomEquiv (T : Scheme.{u}) :
+    (T ⟶ generalLinearScheme R n) ≃
+      (R →+* Γ(T, ⊤)) × (Matrix (n ⊕ n) (n ⊕ n) Γ(T, ⊤))ˣ where
+  toFun f := ⟨generalLinearBase R n f, pointConjugator R n f⟩
+  invFun p :=
+    letI := p.1.toAlgebra
+    T.toSpecΓ ≫ Spec.map (CommRingCat.ofHom (generalLinearEval R n p.2).toRingHom)
+  left_inv f := by
+    letI := (generalLinearBase R n f).toAlgebra
+    dsimp only
+    apply generalLinearHom_ext R n
+    · unfold generalLinearBase
+      rw [affineCoordinates_toSpec]
+      ext r
+      exact (generalLinearEval R n (pointConjugator R n f)).commutes r
+    · unfold pointConjugator
+      rw [affineCoordinates_toSpec]
+      exact generalLinearEval_unit R n _
+  right_inv p := by
+    letI := p.1.toAlgebra
+    dsimp only
+    apply Prod.ext
+    · unfold generalLinearBase
+      rw [affineCoordinates_toSpec]
+      ext r
+      exact (generalLinearEval R n p.2).commutes r
+    · unfold pointConjugator
+      rw [affineCoordinates_toSpec]
+      exact generalLinearEval_unit R n _
+
+theorem conjugation_coordinates {T : Scheme.{u}} (f : T ⟶ generalLinearScheme R n) :
+    (universalMatrix R n).map (affineCoordinates (f ≫ conjugationToSquareZero R n)) =
+      conjugateJordan n (pointConjugator R n f) := by
+  rw [conjugationToSquareZero, affineCoordinates_specMap]
+  change ((universalMatrix R n).map (orbitCoordinateMap R n)).map (affineCoordinates f) = _
+  rw [orbitCoordinateMap_matrix, map_conjugateJordan]
+  rfl
+
+theorem conjugateJordan_eq_iff {S : Type*} [CommRing S]
+    (g h : (Matrix (n ⊕ n) (n ⊕ n) S)ˣ) :
+    conjugateJordan n g = conjugateJordan n h ↔
+      (g⁻¹ * h).val * jordanCell = jordanCell * (g⁻¹ * h).val := by
+  constructor
+  · intro he
+    have hh := congrArg (fun M => g.inv * M * h.val) he
+    simpa [conjugateJordan, mul_assoc] using hh.symm
+  · intro he
+    have hh := congrArg (fun M => g.val * M * h.inv) he
+    simpa [conjugateJordan, mul_assoc] using hh.symm
+
+/-- The stabilizer as a subgroup of the actual general linear group. -/
+def jordanStabilizer (S : Type*) [CommRing S] :
+    Subgroup (Matrix (n ⊕ n) (n ⊕ n) S)ˣ where
+  carrier := {g | g.val * jordanCell = jordanCell * g.val}
+  one_mem' := by simp
+  mul_mem' := by
+    intro g h hg hh
+    change g.val * h.val * jordanCell = jordanCell * (g.val * h.val)
+    rw [mul_assoc, hh, ← mul_assoc, hg, mul_assoc]
+  inv_mem' := by
+    intro g hg
+    have h := congrArg (fun M => g.inv * M * g.inv) hg
+    simpa [mul_assoc] using h.symm
+
+theorem mem_jordanStabilizer_iff {S : Type*} [CommRing S]
+    (g : (Matrix (n ⊕ n) (n ⊕ n) S)ˣ) :
+    g ∈ jordanStabilizer n S ↔
+      ∃ P Q : Matrix n n S, IsUnit P ∧ g.val = Matrix.fromBlocks P Q 0 P := by
+  exact ⟨fun h => (jordanCell_unit_centralizer_iff g.val).mp ⟨g.isUnit, h⟩,
+    fun h => ((jordanCell_unit_centralizer_iff g.val).mpr h).2⟩
+
+/-- Equality in the geometric orbit is exactly equality of the base map and of cosets
+for the right stabilizer action, on arbitrary test schemes. -/
+theorem conjugation_fibres {T : Scheme.{u}} (f g : T ⟶ generalLinearScheme R n) :
+    f ≫ conjugationToSquareZero R n = g ≫ conjugationToSquareZero R n ↔
+      generalLinearBase R n f = generalLinearBase R n g ∧
+      (pointConjugator R n f)⁻¹ * pointConjugator R n g ∈ jordanStabilizer n Γ(T, ⊤) := by
+  have hb (h : T ⟶ generalLinearScheme R n) :
+      (affineCoordinates (h ≫ conjugationToSquareZero R n)).comp
+        (algebraMap R (CoordinateRing R n)) = generalLinearBase R n h := by
+    rw [conjugationToSquareZero, affineCoordinates_specMap]
+    ext r
+    exact congrArg (affineCoordinates h) ((orbitCoordinateMap R n).commutes r)
+  constructor
+  · intro h
+    constructor
+    · rw [← hb f, ← hb g, h]
+    · apply (conjugateJordan_eq_iff n _ _).mp
+      rw [← conjugation_coordinates R n f, ← conjugation_coordinates R n g, h]
+  · rintro ⟨hbase, hcoset⟩
+    apply affineCoordinates_injective
+    apply Ideal.Quotient.ringHom_ext
+    apply MvPolynomial.ringHom_ext
+    · intro r
+      exact DFunLike.congr_fun ((hb f).trans (hbase.trans (hb g).symm)) r
+    · intro ij
+      have hm := (conjugation_coordinates R n f).trans
+        (((conjugateJordan_eq_iff n _ _).mpr hcoset).trans
+          (conjugation_coordinates R n g).symm)
+      exact congrFun (congrFun hm ij.1) ij.2
+
+/-- Cosets for the right stabilizer action, with the base morphism held fixed. -/
+def stabilizerCosetSetoid (T : Scheme.{u}) : Setoid (T ⟶ generalLinearScheme R n) where
+  r f g := generalLinearBase R n f = generalLinearBase R n g ∧
+    (pointConjugator R n f)⁻¹ * pointConjugator R n g ∈ jordanStabilizer n Γ(T, ⊤)
+  iseqv := ⟨fun f => (conjugation_fibres R n f f).mp rfl,
+    fun h => (conjugation_fibres R n _ _).mp ((conjugation_fibres R n _ _).mpr h).symm,
+    fun h₁ h₂ => (conjugation_fibres R n _ _).mp
+      (((conjugation_fibres R n _ _).mpr h₁).trans ((conjugation_fibres R n _ _).mpr h₂))⟩
+
+theorem stabilizerCosetSetoid_iff {T : Scheme.{u}} (f g : T ⟶ generalLinearScheme R n) :
+    stabilizerCosetSetoid R n T f g ↔
+      generalLinearBase R n f = generalLinearBase R n g ∧
+      (QuotientGroup.mk (pointConjugator R n f) :
+        (Matrix (n ⊕ n) (n ⊕ n) Γ(T, ⊤))ˣ ⧸ jordanStabilizer n Γ(T, ⊤)) =
+        QuotientGroup.mk (pointConjugator R n g) := by
+  rw [QuotientGroup.eq]
+  rfl
+
+/-- The naive presheaf `T ↦ GL(2n)(T)/H(T)`. -/
+def homogeneousCosets : Scheme.{u}ᵒᵖ ⥤ Type u where
+  obj T := Quotient (stabilizerCosetSetoid R n T.unop)
+  map α := TypeCat.ofHom (Quotient.map (fun g => α.unop ≫ g) (by
+    intro f g h
+    apply (conjugation_fibres R n _ _).mp
+    simpa only [Category.assoc] using congrArg (fun f => α.unop ≫ f)
+      ((conjugation_fibres R n _ _).mpr h)))
+  map_id T := by
+    ext x
+    refine Quotient.inductionOn x ?_
+    intro f
+    simp
+  map_comp α β := by
+    ext x
+    refine Quotient.inductionOn x ?_
+    intro f
+    simp [Category.assoc]
+
+def cosetsToConjugationImage : homogeneousCosets R n ⟶ (conjugationImage R n).toFunctor where
+  app T := TypeCat.ofHom (Quotient.lift
+    (fun f => ⟨f ≫ conjugationToSquareZero R n, ⟨f, rfl⟩⟩)
+    (fun f g h => Subtype.ext ((conjugation_fibres R n f g).mpr h)))
+  naturality T U α := by
+    ext x
+    refine Quotient.inductionOn x ?_
+    intro f
+    apply Subtype.ext
+    exact Category.assoc _ _ _
+
+/-- The quotient objects are the usual general-linear-group cosets, one for each base morphism. -/
+def homogeneousCosetsEquiv (T : Scheme.{u}) :
+    (homogeneousCosets R n).obj (op T) ≃
+      (R →+* Γ(T, ⊤)) ×
+        ((Matrix (n ⊕ n) (n ⊕ n) Γ(T, ⊤))ˣ ⧸ jordanStabilizer n Γ(T, ⊤)) := by
+  let q : (homogeneousCosets R n).obj (op T) →
+      (R →+* Γ(T, ⊤)) ×
+        ((Matrix (n ⊕ n) (n ⊕ n) Γ(T, ⊤))ˣ ⧸ jordanStabilizer n Γ(T, ⊤)) :=
+    Quotient.lift (fun f => ⟨generalLinearBase R n f,
+      QuotientGroup.mk (pointConjugator R n f)⟩)
+      (fun f g h => Prod.ext h.1 (QuotientGroup.eq.mpr h.2))
+  apply Equiv.ofBijective q
+  constructor
+  · intro x y
+    refine Quotient.inductionOn₂ x y ?_
+    intro f g h
+    apply Quotient.sound
+    exact ⟨congrArg Prod.fst h, QuotientGroup.eq.mp (congrArg Prod.snd h)⟩
+  · rintro ⟨b, c⟩
+    obtain ⟨g, rfl⟩ := QuotientGroup.mk_surjective c
+    refine ⟨Quotient.mk _ ((generalLinearHomEquiv R n T).symm ⟨b, g⟩), ?_⟩
+    exact congrArg (fun p : (R →+* Γ(T, ⊤)) × (Matrix (n ⊕ n) (n ⊕ n) Γ(T, ⊤))ˣ =>
+      (p.1, (QuotientGroup.mk p.2 : _ ⧸ jordanStabilizer n Γ(T, ⊤))))
+      ((generalLinearHomEquiv R n T).apply_symm_apply ⟨b, g⟩)
+
+instance cosetsToConjugationImage_isIso : IsIso (cosetsToConjugationImage R n) := by
+  rw [NatTrans.isIso_iff_isIso_app]
+  intro T
+  rw [isIso_iff_bijective]
+  constructor
+  · intro x y
+    refine Quotient.inductionOn₂ x y ?_
+    intro f g h
+    apply Quotient.sound
+    exact (conjugation_fibres R n f g).mp (congrArg Subtype.val h)
+  · rintro ⟨f, g, rfl⟩
+    exact ⟨Quotient.mk _ g, rfl⟩
+
+def cosetImageIso : homogeneousCosets R n ≅ (conjugationImage R n).toFunctor :=
+  asIso (cosetsToConjugationImage R n)
+
+/-- The canonical quotient map into the functor represented by the geometric orbit. -/
+def homogeneousQuotientMap : homogeneousCosets R n ⟶ yoneda.obj (maximalRankScheme R n) :=
+  (cosetImageIso R n).hom ≫
+    Subfunctor.homOfLe ((conjugationImage R n).le_sheafify Scheme.zariskiTopology) ≫
+      (conjugationSheafIso R n).hom
+
+theorem conjugationSheafIso_ι :
+    (conjugationSheafIso R n).hom ≫ yoneda.map (maximalRankOpen R n).ι =
+      ((conjugationImage R n).sheafify Scheme.zariskiTopology).ι := by
+  have hι : (asIso (Subfunctor.toRange (yoneda.map (maximalRankOpen R n).ι))).inv ≫
+      yoneda.map (maximalRankOpen R n).ι = (orbitImage R n).ι := by
+    apply (cancel_epi (Subfunctor.toRange (yoneda.map (maximalRankOpen R n).ι))).mp
+    simp only [← Category.assoc, asIso_inv, IsIso.hom_inv_id, Category.id_comp]
+    exact (Subfunctor.toRange_ι _).symm
+  unfold conjugationSheafIso
+  simp only [Iso.trans_hom, Category.assoc, Iso.symm_hom, hι]
+  have hcast {G H : Subfunctor (yoneda.obj (squareZeroScheme R n))} (h : G = H) :
+      (eqToIso (congrArg Subfunctor.toFunctor h)).hom ≫ H.ι = G.ι := by
+    subst H
+    rfl
+  exact hcast (conjugationImage_sheafify R n)
+
+/-- On every representative the quotient map is the actual conjugation morphism. -/
+theorem homogeneousQuotientMap_mk {T : Scheme.{u}} (f : T ⟶ generalLinearScheme R n) :
+    (homogeneousQuotientMap R n).app (op T) (Quotient.mk _ f) = f ≫ orbitProjection R n := by
+  apply (cancel_mono (maximalRankOpen R n).ι).mp
+  have h := congrArg (fun η : homogeneousCosets R n ⟶ yoneda.obj (squareZeroScheme R n) =>
+      η.app (op T) (Quotient.mk _ f))
+    (show homogeneousQuotientMap R n ≫ yoneda.map (maximalRankOpen R n).ι =
+        cosetsToConjugationImage R n ≫ (conjugationImage R n).ι by
+      simp only [homogeneousQuotientMap, Category.assoc, conjugationSheafIso_ι,
+        Subfunctor.homOfLe_ι]
+      rfl)
+  simpa only [NatTrans.comp_app, ConcreteCategory.comp_apply, yoneda_map_app,
+    Category.assoc, orbitProjection_ι] using h
+
+/-- The representing scheme satisfies the universal property of the Zariski sheaf
+quotient by the explicit stabilizer, against every sheaf of sets. -/
+theorem homogeneousQuotient_universal (F : Scheme.{u}ᵒᵖ ⥤ Type u)
+    (hF : Presieve.IsSheaf Scheme.zariskiTopology F)
+    (f : homogeneousCosets R n ⟶ F) :
+    ∃! g : yoneda.obj (maximalRankScheme R n) ⟶ F,
+      homogeneousQuotientMap R n ≫ g = f := by
+  let lift := (conjugationImage R n).sheafifyLift ((cosetImageIso R n).inv ≫ f) hF
+  have hfac : Subfunctor.homOfLe
+      ((conjugationImage R n).le_sheafify Scheme.zariskiTopology) ≫ lift =
+      (cosetImageIso R n).inv ≫ f :=
+    (conjugationImage R n).to_sheafifyLift _ hF
+  refine ⟨(conjugationSheafIso R n).inv ≫ lift, ?_, ?_⟩
+  · simp only [homogeneousQuotientMap, Category.assoc, Iso.hom_inv_id_assoc]
+    rw [hfac]
+    simp
+  · intro g hg
+    have he : (conjugationSheafIso R n).hom ≫ g = lift := by
+      apply (conjugationImage R n).to_sheafify_lift_unique hF
+      rw [hfac]
+      apply (cancel_epi (cosetImageIso R n).hom).mp
+      simpa only [homogeneousQuotientMap, Category.assoc, Iso.hom_inv_id_assoc] using hg
+    rw [← he]
+    simp
+
+/-- The same representing scheme is also the fppf sheaf quotient. -/
+theorem homogeneousQuotient_fppf_universal (F : Scheme.{u}ᵒᵖ ⥤ Type u)
+    (hF : Presieve.IsSheaf Scheme.fppfTopology F)
+    (f : homogeneousCosets R n ⟶ F) :
+    ∃! g : yoneda.obj (maximalRankScheme R n) ⟶ F,
+      homogeneousQuotientMap R n ≫ g = f :=
+  homogeneousQuotient_universal R n F
+    (Presieve.isSheaf_of_le F
+      (Precoverage.toGrothendieck_mono Scheme.zariskiPrecoverage_le_fppfPrecoverage) hF) f
+
+theorem orbit_fppf_isSheaf :
+    Presieve.IsSheaf Scheme.fppfTopology (yoneda.obj (maximalRankScheme R n)) :=
+  GrothendieckTopology.Subcanonical.isSheaf_of_isRepresentable _
+
+end
+end Universality.SquareZeroGeometry
