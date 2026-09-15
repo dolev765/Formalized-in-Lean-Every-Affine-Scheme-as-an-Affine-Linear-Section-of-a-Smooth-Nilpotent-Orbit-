@@ -10,6 +10,12 @@ import Mathlib.RingTheory.Etale.Kaehler
 import Mathlib.RingTheory.Localization.Module
 import Universality.MatrixOrbit
 import Universality.Scheme
+import Mathlib.Topology.Sheaves.LocalPredicate
+import Mathlib.LinearAlgebra.SymmetricAlgebra.Basis
+import Mathlib.LinearAlgebra.ExteriorPower.Basis
+import Mathlib.LinearAlgebra.Alternating.Curry
+import Mathlib.LinearAlgebra.BilinearForm.TensorProduct
+import Mathlib.AlgebraicGeometry.Modules.Tilde
 
 /-!
 # The trace form and closed algebraic forms on the orbit charts
@@ -1509,3 +1515,2216 @@ theorem cellDifferential_selfOrthogonal :
 end
 end GlobalSymplectic
 end Universality
+
+namespace Universality.AffineForms
+noncomputable section
+open Matrix
+variable {R S n : Type*} [CommRing R] [CommRing S] [Algebra R S]
+  [Fintype n] [DecidableEq n]
+
+theorem derivMatrix_inv (D : Derivation R S S) (g : (Matrix n n S)ˣ) :
+    derivMatrix D g.inv = -(g.inv * derivMatrix D g.val * g.inv) := by
+  have h := congrArg (derivMatrix D) g.inv_val
+  rw [derivMatrix_mul, derivMatrix_one] at h
+  have hm := congrArg (fun M => M * g.inv) h
+  simp only [add_mul, mul_assoc, Units.val_inv, mul_one, zero_mul] at hm
+  simpa only [mul_assoc] using eq_neg_of_add_eq_zero_left hm
+
+omit [Fintype n] [DecidableEq n] in
+theorem derivMatrix_commutator (D E : Derivation R S S) (M : Matrix n n S) :
+    derivMatrix ⁅D, E⁆ M = derivMatrix D (derivMatrix E M) - derivMatrix E (derivMatrix D M) := by
+  ext i j
+  simp [derivMatrix, Derivation.commutator_apply]
+
+def maurerCartan (g : (Matrix n n S)ˣ) (D : Derivation R S S) : Matrix n n S :=
+  g.inv * derivMatrix D g.val
+
+/-- The left Maurer–Cartan equation, evaluated on arbitrary algebraic vector fields. -/
+theorem maurerCartan_equation (g : (Matrix n n S)ˣ) (D E : Derivation R S S) :
+    derivMatrix D (maurerCartan g E) - derivMatrix E (maurerCartan g D) - maurerCartan g ⁅D, E⁆ =
+      -Symplectic.comm (maurerCartan g D) (maurerCartan g E) := by
+  simp only [maurerCartan, derivMatrix_mul, derivMatrix_inv, derivMatrix_commutator, Symplectic.comm]
+  noncomm_ring
+
+def rightMaurerCartan (g : (Matrix n n S)ˣ) (D : Derivation R S S) : Matrix n n S :=
+  derivMatrix D g.val * g.inv
+
+theorem rightMaurerCartan_eq_conjugate (g : (Matrix n n S)ˣ) (D : Derivation R S S) :
+    rightMaurerCartan g D = Symplectic.conjugate g (maurerCartan g D) := by
+  simp [rightMaurerCartan, Symplectic.conjugate, maurerCartan, ← mul_assoc]
+
+/-- Differentiating actual conjugation gives the commutator tangent map. -/
+theorem conjugation_derivative (g : (Matrix n n S)ˣ) (J : Matrix n n S)
+    (D : Derivation R S S) (hJ : derivMatrix D J = 0) :
+    derivMatrix D (Symplectic.conjugate g J) =
+      Symplectic.comm (rightMaurerCartan g D) (Symplectic.conjugate g J) := by
+  have hi : derivMatrix D (g.val)⁻¹ = -(g.inv * derivMatrix D g.val * g.inv) := by
+    simpa only [← Matrix.coe_units_inv] using derivMatrix_inv D g
+  simp only [Symplectic.conjugate, derivMatrix_mul, hJ, mul_zero, add_zero,
+    Symplectic.comm, rightMaurerCartan]
+  simp [mul_assoc, sub_eq_add_neg, hi]
+
+/-- Pullback of the KKS trace formula along conjugation. -/
+theorem conjugation_KKS_pullback (g : (Matrix n n S)ˣ) (J : Matrix n n S)
+    (D E : Derivation R S S) :
+    Symplectic.traceForm (Symplectic.conjugate g J)
+      (rightMaurerCartan g D) (rightMaurerCartan g E) =
+      Matrix.trace (J * Symplectic.comm (maurerCartan g D) (maurerCartan g E)) := by
+  rw [rightMaurerCartan_eq_conjugate, rightMaurerCartan_eq_conjugate, Symplectic.traceForm_conjugate]
+  rfl
+
+omit [DecidableEq n] in
+theorem derivation_trace (D : Derivation R S S) (M : Matrix n n S) :
+    D (Matrix.trace M) = Matrix.trace (derivMatrix D M) := by
+  simp [Matrix.trace, Matrix.diag, derivMatrix, map_sum]
+
+def maurerCartanTrace (g : (Matrix n n S)ˣ) (J : Matrix n n S) (D : Derivation R S S) : S :=
+  Matrix.trace (J * maurerCartan g D)
+
+/-- `π*ω = -d tr(J g⁻¹dg)`, with the actual conjugation derivative and KKS pairing. -/
+theorem conjugation_KKS_exact (g : (Matrix n n S)ˣ) (J : Matrix n n S)
+    (D E : Derivation R S S) (hDJ : derivMatrix D J = 0) (hEJ : derivMatrix E J = 0) :
+    Symplectic.traceForm (Symplectic.conjugate g J)
+      (rightMaurerCartan g D) (rightMaurerCartan g E) =
+      -(D (maurerCartanTrace g J E) - E (maurerCartanTrace g J D) - maurerCartanTrace g J ⁅D, E⁆) := by
+  rw [conjugation_KKS_pullback]
+  have h := congrArg (fun M => Matrix.trace (J * M)) (maurerCartan_equation g D E)
+  simp only [mul_sub, mul_neg, Matrix.trace_sub, Matrix.trace_neg] at h
+  simp only [maurerCartanTrace, derivation_trace, derivMatrix_mul, hDJ, hEJ, zero_mul, zero_add]
+  exact (neg_eq_iff_eq_neg.mp h.symm)
+
+end
+
+noncomputable section
+open Matrix
+variable {S n : Type*} [CommRing S] [Fintype n] [DecidableEq n]
+
+def infinitesimalA (A : Matrix n n S) (X : Matrix (n ⊕ n) (n ⊕ n) S) : Matrix n n S :=
+  -A * X.toBlocks₁₁ - X.toBlocks₂₁ + A * X.toBlocks₁₂ * A + X.toBlocks₂₂ * A
+
+def infinitesimalT (A T : Matrix n n S) (X : Matrix (n ⊕ n) (n ⊕ n) S) : Matrix n n S :=
+  X.toBlocks₁₁ * T - X.toBlocks₁₂ * A * T - T * A * X.toBlocks₁₂ - T * X.toBlocks₂₂
+
+omit [DecidableEq n] in
+theorem infinitesimal_comm (A T : Matrix n n S) (X : Matrix (n ⊕ n) (n ⊕ n) S) :
+    Symplectic.comm X (generalChart A T) =
+      Matrix.fromBlocks (infinitesimalT A T X * A + T * infinitesimalA A X) (infinitesimalT A T X)
+        (-(infinitesimalA A X * T * A + A * infinitesimalT A T X * A + A * T * infinitesimalA A X))
+        (-(infinitesimalA A X * T + A * infinitesimalT A T X)) := by
+  conv_lhs => arg 1; rw [← Matrix.fromBlocks_toBlocks X]
+  simp only [Symplectic.comm, generalChart, Matrix.fromBlocks_multiply, fromBlocks_sub,
+    Matrix.fromBlocks_inj, infinitesimalA, infinitesimalT]
+  refine ⟨?_, ?_, ?_, ?_⟩ <;> noncomm_ring
+
+theorem infinitesimalA_generator (A : Matrix n n S) (T : (Matrix n n S)ˣ) (dA dT : Matrix n n S) :
+    infinitesimalA A (chartGenerator A T dA dT) = dA := by
+  simp [infinitesimalA, chartGenerator_blocks]
+
+theorem infinitesimalT_generator (A : Matrix n n S) (T : (Matrix n n S)ˣ) (dA dT : Matrix n n S) :
+    infinitesimalT A T.val (chartGenerator A T dA dT) = dT := by
+  simp [infinitesimalT, chartGenerator_blocks, mul_assoc]
+
+end
+
+noncomputable section
+variable {S n : Type*} [CommRing S] [Fintype n]
+
+theorem infinitesimalA_add (A : Matrix n n S) (X Y : Matrix (n ⊕ n) (n ⊕ n) S) :
+    infinitesimalA A (X + Y) = infinitesimalA A X + infinitesimalA A Y := by
+  have h₁ : (X + Y).toBlocks₁₁ = X.toBlocks₁₁ + Y.toBlocks₁₁ := rfl
+  have h₂ : (X + Y).toBlocks₁₂ = X.toBlocks₁₂ + Y.toBlocks₁₂ := rfl
+  have h₃ : (X + Y).toBlocks₂₁ = X.toBlocks₂₁ + Y.toBlocks₂₁ := rfl
+  have h₄ : (X + Y).toBlocks₂₂ = X.toBlocks₂₂ + Y.toBlocks₂₂ := rfl
+  simp only [infinitesimalA, h₁, h₂, h₃, h₄, add_mul, mul_add]
+  abel
+
+theorem infinitesimalT_add (A T : Matrix n n S) (X Y : Matrix (n ⊕ n) (n ⊕ n) S) :
+    infinitesimalT A T (X + Y) = infinitesimalT A T X + infinitesimalT A T Y := by
+  have h₁ : (X + Y).toBlocks₁₁ = X.toBlocks₁₁ + Y.toBlocks₁₁ := rfl
+  have h₂ : (X + Y).toBlocks₁₂ = X.toBlocks₁₂ + Y.toBlocks₁₂ := rfl
+  have h₄ : (X + Y).toBlocks₂₂ = X.toBlocks₂₂ + Y.toBlocks₂₂ := rfl
+  simp only [infinitesimalT, h₁, h₂, h₄, add_mul, mul_add]
+  abel
+
+theorem infinitesimalA_smul (A : Matrix n n S) (a : S) (X : Matrix (n ⊕ n) (n ⊕ n) S) :
+    infinitesimalA A (a • X) = a • infinitesimalA A X := by
+  have h₁ : (a • X).toBlocks₁₁ = a • X.toBlocks₁₁ := rfl
+  have h₂ : (a • X).toBlocks₁₂ = a • X.toBlocks₁₂ := rfl
+  have h₃ : (a • X).toBlocks₂₁ = a • X.toBlocks₂₁ := rfl
+  have h₄ : (a • X).toBlocks₂₂ = a • X.toBlocks₂₂ := rfl
+  simp only [infinitesimalA, h₁, h₂, h₃, h₄, smul_mul_assoc, mul_smul_comm, smul_add, smul_sub]
+
+theorem infinitesimalT_smul (A T : Matrix n n S) (a : S) (X : Matrix (n ⊕ n) (n ⊕ n) S) :
+    infinitesimalT A T (a • X) = a • infinitesimalT A T X := by
+  have h₁ : (a • X).toBlocks₁₁ = a • X.toBlocks₁₁ := rfl
+  have h₂ : (a • X).toBlocks₁₂ = a • X.toBlocks₁₂ := rfl
+  have h₄ : (a • X).toBlocks₂₂ = a • X.toBlocks₂₂ := rfl
+  simp only [infinitesimalT, h₁, h₂, h₄, smul_mul_assoc, mul_smul_comm, smul_sub]
+
+end
+end Universality.AffineForms
+
+namespace Universality.GlobalSymplectic
+noncomputable section
+open AffineForms SquareZeroGeometry
+universe u
+variable (R n : Type u) [CommRing R] [Fintype n] [DecidableEq n]
+
+omit [Fintype n] in
+theorem derivMatrix_jordanCell {S : Type u} [CommRing S] [Algebra R S]
+    (D : Derivation R S S) : derivMatrix D (jordanCell : Matrix (n ⊕ n) (n ⊕ n) S) = 0 := by
+  ext (i | i) (j | j) <;> simp [jordanCell, derivMatrix, Matrix.one_apply, apply_ite]
+
+/-- The computed derivative is that of the coordinate map defining the actual quotient morphism. -/
+theorem orbitProjection_derivative (D : Derivation R (GeneralLinearRing R n) (GeneralLinearRing R n)) :
+    derivMatrix D ((universalMatrix R n).map (orbitCoordinateMap R n)) =
+      Symplectic.comm (rightMaurerCartan (generalLinearUnit R n) D)
+        ((universalMatrix R n).map (orbitCoordinateMap R n)) := by
+  rw [orbitCoordinateMap_matrix]
+  exact conjugation_derivative (generalLinearUnit R n) jordanCell D (derivMatrix_jordanCell R n D)
+
+theorem orbitProjection_KKS_exact
+    (D E : Derivation R (GeneralLinearRing R n) (GeneralLinearRing R n)) :
+    Symplectic.traceForm ((universalMatrix R n).map (orbitCoordinateMap R n))
+      (rightMaurerCartan (generalLinearUnit R n) D) (rightMaurerCartan (generalLinearUnit R n) E) =
+      -(D (maurerCartanTrace (generalLinearUnit R n) jordanCell E) -
+        E (maurerCartanTrace (generalLinearUnit R n) jordanCell D) -
+        maurerCartanTrace (generalLinearUnit R n) jordanCell ⁅D, E⁆) := by
+  rw [orbitCoordinateMap_matrix]
+  exact conjugation_KKS_exact (generalLinearUnit R n) jordanCell D E
+    (derivMatrix_jordanCell R n D) (derivMatrix_jordanCell R n E)
+
+end
+
+noncomputable section
+open AffineForms SquareZeroGeometry
+universe u
+variable (R n : Type u) [CommRing R] [Fintype n] [DecidableEq n]
+
+def chartTangentProjectionFun (X : Matrix (n ⊕ n) (n ⊕ n) (ChartRing R n)) :
+    Derivation R (ChartRing R n) (ChartRing R n) :=
+  coordinateDerivation (Submonoid.powers (chartDet R n))
+    (Sum.elim (fun ij => infinitesimalA (chartA R n) X ij.1 ij.2)
+      (fun ij => infinitesimalT (chartA R n) (chartT R n) X ij.1 ij.2))
+
+theorem chartTangentProjection_A (X : Matrix (n ⊕ n) (n ⊕ n) (ChartRing R n)) :
+    derivMatrix (chartTangentProjectionFun R n X) (chartA R n) = infinitesimalA (chartA R n) X := by
+  ext i j
+  exact coordinateDerivation_coordinate _ _ (Sum.inl (i, j))
+
+theorem chartTangentProjection_T (X : Matrix (n ⊕ n) (n ⊕ n) (ChartRing R n)) :
+    derivMatrix (chartTangentProjectionFun R n X) (chartT R n) =
+      infinitesimalT (chartA R n) (chartT R n) X := by
+  ext i j
+  exact coordinateDerivation_coordinate _ _ (Sum.inr (i, j))
+
+/-- The local tangent map sends an ambient matrix `X` to the actual derivative `[X,Z]`. -/
+theorem chartTangentProjection_derivative (X : Matrix (n ⊕ n) (n ⊕ n) (ChartRing R n)) :
+    derivMatrix (chartTangentProjectionFun R n X) (generalChart (chartA R n) (chartT R n)) =
+      Symplectic.comm X (generalChart (chartA R n) (chartT R n)) := by
+  rw [derivMatrix_generalChart, chartTangentProjection_A, chartTangentProjection_T, infinitesimal_comm]
+
+theorem chartTangentProjection_split (D : Derivation R (ChartRing R n) (ChartRing R n)) :
+    chartTangentProjectionFun R n
+      (chartGenerator (chartA R n) (chartUnitT R n) (derivMatrix D (chartA R n))
+        (derivMatrix D (chartT R n))) = D := by
+  apply derivation_ext_coordinates (Submonoid.powers (chartDet R n))
+  rintro (ij | ij)
+  · have h := chartTangentProjection_A R n
+      (chartGenerator (chartA R n) (chartUnitT R n) (derivMatrix D (chartA R n))
+        (derivMatrix D (chartT R n)))
+    rw [infinitesimalA_generator] at h
+    exact congrFun (congrFun h ij.1) ij.2
+  · have h := chartTangentProjection_T R n
+      (chartGenerator (chartA R n) (chartUnitT R n) (derivMatrix D (chartA R n))
+        (derivMatrix D (chartT R n)))
+    have hg := infinitesimalT_generator (chartA R n) (chartUnitT R n)
+      (derivMatrix D (chartA R n)) (derivMatrix D (chartT R n))
+    exact congrFun (congrFun (h.trans hg) ij.1) ij.2
+
+end
+
+noncomputable section
+open AffineForms SquareZeroGeometry
+universe u
+variable (R n : Type u) [CommRing R] [Fintype n] [DecidableEq n]
+
+/-- The commutator map into the actual module of algebraic vector fields on an orbit chart. -/
+def chartTangentProjection :
+    Matrix (n ⊕ n) (n ⊕ n) (ChartRing R n) →ₗ[ChartRing R n]
+      Derivation R (ChartRing R n) (ChartRing R n) where
+  toFun := chartTangentProjectionFun R n
+  map_add' X Y := by
+    apply derivation_ext_coordinates (Submonoid.powers (chartDet R n))
+    rintro (ij | ij)
+    · have h := (chartTangentProjection_A R n (X + Y)).trans
+        ((infinitesimalA_add (chartA R n) X Y).trans
+          (congrArg₂ (· + ·) (chartTangentProjection_A R n X).symm (chartTangentProjection_A R n Y).symm))
+      exact congrFun (congrFun h ij.1) ij.2
+    · have h := (chartTangentProjection_T R n (X + Y)).trans
+        ((infinitesimalT_add (chartA R n) (chartT R n) X Y).trans
+          (congrArg₂ (· + ·) (chartTangentProjection_T R n X).symm (chartTangentProjection_T R n Y).symm))
+      exact congrFun (congrFun h ij.1) ij.2
+  map_smul' a X := by
+    apply derivation_ext_coordinates (Submonoid.powers (chartDet R n))
+    rintro (ij | ij)
+    · have h := (chartTangentProjection_A R n (a • X)).trans
+        ((infinitesimalA_smul (chartA R n) a X).trans
+          (congrArg (a • ·) (chartTangentProjection_A R n X).symm))
+      exact congrFun (congrFun h ij.1) ij.2
+    · have h := (chartTangentProjection_T R n (a • X)).trans
+        ((infinitesimalT_smul (chartA R n) (chartT R n) a X).trans
+          (congrArg (a • ·) (chartTangentProjection_T R n X).symm))
+      exact congrFun (congrFun h ij.1) ij.2
+
+/-- A linear section of the tangent projection, obtained from explicit lifts of the coordinate basis. -/
+def chartTangentSection : Derivation R (ChartRing R n) (ChartRing R n) →ₗ[ChartRing R n]
+    Matrix (n ⊕ n) (n ⊕ n) (ChartRing R n) :=
+  (coordinateDerivationBasis (S := ChartRing R n) (Submonoid.powers (chartDet R n))).constr
+    (ChartRing R n) (fun i =>
+      let D := coordinateDerivationBasis (S := ChartRing R n) (Submonoid.powers (chartDet R n)) i
+      chartGenerator (chartA R n) (chartUnitT R n)
+        (derivMatrix D (chartA R n)) (derivMatrix D (chartT R n)))
+
+set_option maxHeartbeats 800000 in
+theorem chartTangentProjection_section :
+    (chartTangentProjection R n).comp (chartTangentSection R n) = LinearMap.id := by
+  apply (coordinateDerivationBasis (S := ChartRing R n) (Submonoid.powers (chartDet R n))).ext
+  intro i
+  simp only [LinearMap.comp_apply, LinearMap.id_apply, chartTangentSection, Module.Basis.constr_basis]
+  exact chartTangentProjection_split R n _
+
+theorem chartTangentProjection_surjective : Function.Surjective (chartTangentProjection R n) := by
+  intro D
+  exact ⟨chartTangentSection R n D, LinearMap.congr_fun (chartTangentProjection_section R n) D⟩
+
+end
+end Universality.GlobalSymplectic
+
+namespace Universality.AffineForms
+noncomputable section
+open AlgebraicGeometry CategoryTheory Opposite TopologicalSpace
+universe u
+variable (R A : Type u) [CommRing R] [CommRing A] [Algebra R A]
+
+abbrev PrimeLocalRing (p : PrimeSpectrum A) : Type u := Localization.AtPrime p.asIdeal
+
+def principalToPrime (f : A) (p : PrimeSpectrum A) (hf : p ∈ PrimeSpectrum.basicOpen f) :
+    Localization.Away f →+* PrimeLocalRing A p :=
+  IsLocalization.Away.lift f (g := algebraMap A (PrimeLocalRing A p))
+    (IsLocalization.map_units (M := p.asIdeal.primeCompl) (PrimeLocalRing A p) ⟨f, hf⟩)
+
+@[simp] theorem principalToPrime_algebraMap (f : A) (p : PrimeSpectrum A)
+    (hf : p ∈ PrimeSpectrum.basicOpen f) (a : A) :
+    principalToPrime A f p hf (algebraMap A (Localization.Away f) a) =
+      algebraMap A (PrimeLocalRing A p) a := by
+  unfold principalToPrime
+  exact IsLocalization.Away.lift_eq _ _ _
+
+def principalToPrimeAlg (f : A) (p : PrimeSpectrum A) (hf : p ∈ PrimeSpectrum.basicOpen f) :
+    Localization.Away f →ₐ[A] PrimeLocalRing A p where
+  __ := principalToPrime A f p hf
+  commutes' := principalToPrime_algebraMap A f p hf
+
+/-- A two-form germ is a bilinear form on derivations of the actual prime localization. -/
+abbrev TwoFormGerm (p : PrimeSpectrum A) : Type u :=
+  LinearMap.BilinForm (PrimeLocalRing A p) (Derivation R (PrimeLocalRing A p) (PrimeLocalRing A p))
+
+/-- Regular local expressions are finite sums `c da ∧ db`, with coefficients in a principal
+localization. Sheafifying this local predicate permits these expressions to vary by neighborhood. -/
+def regularTwoFormPrelocal : TopCat.PrelocalPredicate
+    (X := PrimeSpectrum.Top A) (TwoFormGerm R A) where
+  pred {U} s := ∃ (f : A) (hU : U ≤ PrimeSpectrum.basicOpen f)
+      (I : Type u) (_ : Fintype I) (c a b : I → Localization.Away f),
+    ∀ p : U, s p = ∑ i, principalToPrime A f p.val (hU p.property) (c i) •
+      coordinateForm (R := R)
+        (principalToPrime A f p.val (hU p.property) (a i))
+        (principalToPrime A f p.val (hU p.property) (b i))
+  res i s h := by
+    obtain ⟨f, hU, I, hI, c, a, b, hs⟩ := h
+    exact ⟨f, i.le.trans hU, I, hI, c, a, b, fun p => hs (i p)⟩
+
+/-- The sheaf of regular algebraic two-forms, expressed on the prime-local derivation modules. -/
+def regularTwoFormSheaf : TopCat.Sheaf (Type u) (PrimeSpectrum.Top A) :=
+  TopCat.subsheafToTypes (regularTwoFormPrelocal R A).sheafify
+
+end
+end Universality.AffineForms
+
+namespace Universality.GlobalSymplectic
+noncomputable section
+open AffineForms SquareZeroGeometry AlgebraicGeometry CategoryTheory Opposite TopologicalSpace
+universe u
+variable (R n : Type u) [CommRing R] [Fintype n] [DecidableEq n]
+
+section Coefficients
+variable (S : Type u) [CommRing S] [Algebra (CoordinateRing R n) S]
+
+def coefficientMatrix : Matrix (n ⊕ n) (n ⊕ n) S :=
+  (universalMatrix R n).map (algebraMap (CoordinateRing R n) S)
+
+def coefficientT (e : Equiv.Perm (n ⊕ n)) : Matrix n n S :=
+  ((coefficientMatrix R n S).submatrix e e).toBlocks₁₂
+
+def coefficientA (e : Equiv.Perm (n ⊕ n)) : Matrix n n S :=
+  (coefficientT R n S e)⁻¹ * ((coefficientMatrix R n S).submatrix e e).toBlocks₁₁
+
+theorem coefficient_normalForm (e : Equiv.Perm (n ⊕ n)) (h : IsUnit (coefficientT R n S e).det) :
+    generalChart (coefficientA R n S e) (coefficientT R n S e) =
+      (coefficientMatrix R n S).submatrix e e := by
+  have hs : (coefficientMatrix R n S).submatrix e e * (coefficientMatrix R n S).submatrix e e = 0 := by
+    rw [Matrix.submatrix_mul_equiv]
+    change ((universalMatrix R n).map (algebraMap (CoordinateRing R n) S) *
+      (universalMatrix R n).map (algebraMap (CoordinateRing R n) S)).submatrix e e = 0
+    rw [← Matrix.map_mul, universalMatrix_square]
+    ext i j
+    simp
+  have hh := square_zero_invertible_block_normalForm
+    ((coefficientMatrix R n S).submatrix e e).toBlocks₁₁
+    ((coefficientMatrix R n S).submatrix e e).toBlocks₂₁
+    ((coefficientMatrix R n S).submatrix e e).toBlocks₂₂
+    (coefficientT R n S e) h (by simpa only [coefficientT, Matrix.fromBlocks_toBlocks] using hs)
+  simpa only [coefficientA, coefficientT, Matrix.fromBlocks_toBlocks] using hh
+
+theorem coefficientT_det (e : Equiv.Perm (n ⊕ n)) :
+    (coefficientT R n S e).det = algebraMap (CoordinateRing R n) S (chartMinor R n e) :=
+  ((algebraMap (CoordinateRing R n) S).map_det _).symm
+
+variable [Algebra R S]
+
+theorem coefficient_forms_compatible (e f : Equiv.Perm (n ⊕ n))
+    (he : IsUnit (coefficientT R n S e).det) (hf : IsUnit (coefficientT R n S f).det) :
+    canonicalTrace (R := R) (coefficientT R n S e) (coefficientA R n S e) =
+      canonicalTrace (coefficientT R n S f) (coefficientA R n S f) := by
+  apply canonicalTrace_reindex_compatible _ _
+    (Matrix.nonsingInvUnit _ he) (Matrix.nonsingInvUnit _ hf) (e.trans f.symm)
+  change generalChart (coefficientA R n S e) (coefficientT R n S e) =
+    (generalChart (coefficientA R n S f) (coefficientT R n S f)).submatrix _ _
+  rw [coefficient_normalForm R n S e he, coefficient_normalForm R n S f hf]
+  ext i j
+  simp [Matrix.submatrix]
+
+end Coefficients
+
+omit [DecidableEq n] in
+theorem coefficientMatrix_map {S B : Type u} [CommRing S] [CommRing B]
+    [Algebra (CoordinateRing R n) S] [Algebra (CoordinateRing R n) B]
+    (φ : S →ₐ[CoordinateRing R n] B) :
+    (coefficientMatrix R n S).map φ = coefficientMatrix R n B := by
+  ext i j
+  exact φ.commutes _
+
+omit [DecidableEq n] in
+theorem coefficientT_map {S B : Type u} [CommRing S] [CommRing B]
+    [Algebra (CoordinateRing R n) S] [Algebra (CoordinateRing R n) B]
+    (φ : S →ₐ[CoordinateRing R n] B) (e : Equiv.Perm (n ⊕ n)) :
+    (coefficientT R n S e).map φ = coefficientT R n B e := by
+  have h := coefficientMatrix_map R n φ
+  exact congrArg (fun M => (M.submatrix e e).toBlocks₁₂) h
+
+theorem coefficientA_map {S B : Type u} [CommRing S] [CommRing B]
+    [Algebra (CoordinateRing R n) S] [Algebra (CoordinateRing R n) B]
+    (φ : S →ₐ[CoordinateRing R n] B) (e : Equiv.Perm (n ⊕ n))
+    (hS : IsUnit (coefficientT R n S e).det) (hB : IsUnit (coefficientT R n B e).det) :
+    (coefficientA R n S e).map φ = coefficientA R n B e := by
+  have h := congrArg (fun M => (M.map φ).toBlocks₁₁) (coefficient_normalForm R n S e hS)
+  have hm := coefficientMatrix_map R n φ
+  have hT := coefficientT_map R n φ e
+  change (coefficientT R n S e * coefficientA R n S e).map φ =
+    (((coefficientMatrix R n S).map φ).submatrix e e).toBlocks₁₁ at h
+  rw [Matrix.map_mul, hT, hm] at h
+  have hh := congrArg (fun M => (coefficientT R n B e)⁻¹ * M) h
+  simpa only [← mul_assoc, Matrix.nonsing_inv_mul _ hB, one_mul, coefficientA] using hh
+
+theorem prime_coefficientT_isUnit (p : PrimeSpectrum (CoordinateRing R n))
+    (e : Equiv.Perm (n ⊕ n)) (he : p ∈ permutationOpen R n e) :
+    IsUnit (coefficientT R n (PrimeLocalRing (CoordinateRing R n) p) e).det := by
+  rw [coefficientT_det]
+  exact IsLocalization.map_units (M := p.asIdeal.primeCompl)
+    (PrimeLocalRing (CoordinateRing R n) p) ⟨chartMinor R n e, he⟩
+
+theorem principal_coefficientT_isUnit (e : Equiv.Perm (n ⊕ n)) :
+    IsUnit (coefficientT R n (Localization.Away (chartMinor R n e)) e).det := by
+  rw [coefficientT_det]
+  exact IsLocalization.Away.algebraMap_isUnit _
+
+def primeChartForm (p : PrimeSpectrum (CoordinateRing R n)) (e : Equiv.Perm (n ⊕ n)) :
+    TwoFormGerm R (CoordinateRing R n) p :=
+  canonicalTrace (coefficientT R n (PrimeLocalRing (CoordinateRing R n) p) e)
+    (coefficientA R n (PrimeLocalRing (CoordinateRing R n) p) e)
+
+theorem primeChartForm_eq (p : PrimeSpectrum (CoordinateRing R n)) (e f : Equiv.Perm (n ⊕ n))
+    (he : p ∈ permutationOpen R n e) (hf : p ∈ permutationOpen R n f) :
+    primeChartForm R n p e = primeChartForm R n p f :=
+  coefficient_forms_compatible R n _ e f
+    (prime_coefficientT_isUnit R n p e he) (prime_coefficientT_isUnit R n p f hf)
+
+theorem exists_prime_chart (p : maximalRankOpen R n) : ∃ e, p.val ∈ permutationOpen R n e := by
+  have hp : p.val ∈ (⨆ e, permutationOpen R n e) := by
+    rw [permutationOpen_cover]
+    exact p.property
+  exact Opens.mem_iSup.mp hp
+
+def orbitFormValue (p : maximalRankOpen R n) : TwoFormGerm R (CoordinateRing R n) p.val :=
+  primeChartForm R n p.val (exists_prime_chart R n p).choose
+
+theorem orbitFormValue_eq (p : maximalRankOpen R n) (e : Equiv.Perm (n ⊕ n))
+    (he : p.val ∈ permutationOpen R n e) : orbitFormValue R n p = primeChartForm R n p.val e :=
+  primeChartForm_eq R n p.val _ e (exists_prime_chart R n p).choose_spec he
+
+/-- A single global section of the regular two-form sheaf on the orbit. -/
+def orbitGlobalTwoForm :
+    (regularTwoFormSheaf R (CoordinateRing R n)).obj.obj (op (maximalRankOpen R n)) := by
+  refine ⟨orbitFormValue R n, ?_⟩
+  intro p
+  obtain ⟨e, he⟩ := exists_prime_chart R n p
+  refine ⟨permutationOpen R n e, he, homOfLE (permutationOpen_le_maximalRank R n e), ?_⟩
+  refine ⟨chartMinor R n e, le_rfl, n × n, inferInstance, (fun _ => 1),
+    (fun ij => coefficientT R n (Localization.Away (chartMinor R n e)) e ij.1 ij.2),
+    (fun ij => coefficientA R n (Localization.Away (chartMinor R n e)) e ij.2 ij.1), ?_⟩
+  intro q
+  dsimp only
+  rw [orbitFormValue_eq R n _ e q.property]
+  let φ := principalToPrimeAlg (CoordinateRing R n) (chartMinor R n e) q.val q.property
+  have hT := coefficientT_map R n φ e
+  have hA := coefficientA_map R n φ e (principal_coefficientT_isUnit R n e)
+    (prime_coefficientT_isUnit R n q.val e q.property)
+  change canonicalTrace (R := R)
+    (coefficientT R n (PrimeLocalRing (CoordinateRing R n) q.val) e)
+    (coefficientA R n (PrimeLocalRing (CoordinateRing R n) q.val) e) = _
+  rw [← hT, ← hA]
+  simp only [canonicalTrace, Fintype.sum_prod_type, map_one, one_smul]
+  rfl
+
+theorem orbitGlobalTwoForm_chart (p : maximalRankOpen R n) (e : Equiv.Perm (n ⊕ n))
+    (he : p.val ∈ permutationOpen R n e) :
+    (orbitGlobalTwoForm R n).val p = primeChartForm R n p.val e :=
+  orbitFormValue_eq R n p e he
+
+theorem orbitGlobalTwoForm_alternating (p : maximalRankOpen R n) :
+    ((orbitGlobalTwoForm R n).val p).IsAlt :=
+  canonicalTrace_alternating _ _
+
+theorem orbitGlobalTwoForm_closed (p : maximalRankOpen R n) :
+    IsClosed ((orbitGlobalTwoForm R n).val p) :=
+  canonicalTrace_closed _ _
+
+def primeChartEvaluation (p : PrimeSpectrum (CoordinateRing R n)) (e : Equiv.Perm (n ⊕ n))
+    (he : p ∈ permutationOpen R n e) : ChartRing R n →ₐ[R] PrimeLocalRing (CoordinateRing R n) p :=
+  chartEval R n (coefficientA R n (PrimeLocalRing (CoordinateRing R n) p) e)
+    (Matrix.nonsingInvUnit _ (prime_coefficientT_isUnit R n p e he))
+
+theorem primeChartEvaluation_A (p : PrimeSpectrum (CoordinateRing R n)) (e : Equiv.Perm (n ⊕ n))
+    (he : p ∈ permutationOpen R n e) :
+    (chartA R n).map (primeChartEvaluation R n p e he) =
+      coefficientA R n (PrimeLocalRing (CoordinateRing R n) p) e := chartEval_A R n _ _
+
+theorem primeChartEvaluation_T (p : PrimeSpectrum (CoordinateRing R n)) (e : Equiv.Perm (n ⊕ n))
+    (he : p ∈ permutationOpen R n e) :
+    (chartT R n).map (primeChartEvaluation R n p e he) =
+      coefficientT R n (PrimeLocalRing (CoordinateRing R n) p) e :=
+  congrArg Units.val (chartEval_T R n _ _)
+
+/-- The chart-to-germ homomorphism is over the actual square-zero coordinate ring. -/
+theorem primeChartEvaluation_over (p : PrimeSpectrum (CoordinateRing R n)) (e : Equiv.Perm (n ⊕ n))
+    (he : p ∈ permutationOpen R n e) :
+    (primeChartEvaluation R n p e he).comp (permutationChartEmbedding R n e) =
+      IsScalarTower.toAlgHom R (CoordinateRing R n) (PrimeLocalRing (CoordinateRing R n) p) := by
+  have hm : ((universalMatrix R n).map (permutationChartEmbedding R n e)).map
+      (primeChartEvaluation R n p e he) = coefficientMatrix R n (PrimeLocalRing (CoordinateRing R n) p) := by
+    rw [permutationChartEmbedding_matrix]
+    have hchart : (generalChart (chartA R n) (chartT R n)).map (primeChartEvaluation R n p e he) =
+        generalChart ((chartA R n).map (primeChartEvaluation R n p e he))
+          ((chartT R n).map (primeChartEvaluation R n p e he)) := by
+      ext (i | i) (j | j) <;>
+        simp [generalChart, Matrix.mul_apply, map_sum, map_mul]
+    change ((generalChart (chartA R n) (chartT R n)).map
+      (primeChartEvaluation R n p e he)).submatrix e.symm e.symm = _
+    rw [hchart, primeChartEvaluation_A, primeChartEvaluation_T,
+      coefficient_normalForm R n _ e (prime_coefficientT_isUnit R n p e he)]
+    ext i j
+    simp [Matrix.submatrix]
+  apply quotientAlgHom_ext
+  intro ij
+  exact congrFun (congrFun hm ij.1) ij.2
+
+/-- The global sheaf section restricts to the same concrete form as the verified symplectic atlas. -/
+theorem orbitGlobalTwoForm_atlas (p : maximalRankOpen R n) (e : Equiv.Perm (n ⊕ n))
+    (he : p.val ∈ permutationOpen R n e) :
+    (orbitGlobalTwoForm R n).val p =
+      canonicalTrace (R := R) ((chartT R n).map (primeChartEvaluation R n p.val e he))
+        ((chartA R n).map (primeChartEvaluation R n p.val e he)) := by
+  rw [orbitGlobalTwoForm_chart R n p e he, primeChartEvaluation_T, primeChartEvaluation_A]
+  rfl
+
+theorem toChartBase_isLocalization :
+    letI := (toChartBase R n).toAlgebra
+    IsLocalization.Away (topRightDet R n) (ChartRing R n) := by
+  letI := (toChartBase R n).toAlgebra
+  let e : LocalCoordinateRing R n ≃ₐ[CoordinateRing R n] ChartRing R n :=
+    { (chartAlgEquiv R n).toRingEquiv with
+      commutes' := by
+        intro x
+        change toChart R n (algebraMap (CoordinateRing R n) (LocalCoordinateRing R n) x) =
+          toChartBase R n x
+        exact awayLift_algebraMap R _ _ _ x }
+  exact IsLocalization.isLocalization_of_algEquiv (Submonoid.powers (topRightDet R n)) e
+
+theorem permutationChart_isLocalization (e : Equiv.Perm (n ⊕ n)) :
+    letI := (permutationChartEmbedding R n e).toAlgebra
+    IsLocalization.Away (chartMinor R n e) (ChartRing R n) := by
+  letI := (toChartBase R n).toAlgebra
+  letI := toChartBase_isLocalization R n
+  have h := IsLocalization.isLocalization_of_base_ringEquiv
+    (Submonoid.powers (topRightDet R n)) (ChartRing R n) (permuteCoordinate R n e).toRingEquiv
+  simpa only [Submonoid.map_powers, AlgEquiv.coe_ringEquiv, permuteCoordinate_det, chartMinor] using h
+
+/-- The polynomial chart coordinates evaluated in a local ring of the orbit. -/
+def primeChartPolynomialEvaluation (p : PrimeSpectrum (CoordinateRing R n))
+    (e : Equiv.Perm (n ⊕ n)) (he : p ∈ permutationOpen R n e) :
+    ChartPolynomialRing R n →ₐ[R] PrimeLocalRing (CoordinateRing R n) p :=
+  (primeChartEvaluation R n p e he).comp
+    (IsScalarTower.toAlgHom R (ChartPolynomialRing R n) (ChartRing R n))
+
+/-- A local ring on a chart is a localization of its polynomial coordinate ring. -/
+theorem primeChartPolynomial_isLocalization (p : PrimeSpectrum (CoordinateRing R n))
+    (e : Equiv.Perm (n ⊕ n)) (he : p ∈ permutationOpen R n e) :
+    letI := (primeChartPolynomialEvaluation R n p e he).toAlgebra
+    IsLocalization (IsLocalization.localizationLocalizationSubmodule
+      (Submonoid.powers (chartDet R n))
+      (p.asIdeal.primeCompl.map (permutationChartEmbedding R n e).toRingHom))
+      (PrimeLocalRing (CoordinateRing R n) p) := by
+  letI := (permutationChartEmbedding R n e).toAlgebra
+  letI := permutationChart_isLocalization R n e
+  letI := (primeChartEvaluation R n p e he).toAlgebra
+  letI : IsScalarTower (CoordinateRing R n) (ChartRing R n)
+      (PrimeLocalRing (CoordinateRing R n) p) :=
+    IsScalarTower.of_algebraMap_eq' (congrArg AlgHom.toRingHom (primeChartEvaluation_over R n p e he)).symm
+  have hle : Submonoid.powers (chartMinor R n e) ≤ p.asIdeal.primeCompl := by
+    rintro x ⟨m, rfl⟩
+    exact p.asIdeal.primeCompl.pow_mem he m
+  let N := p.asIdeal.primeCompl.map (permutationChartEmbedding R n e).toRingHom
+  letI : IsLocalization N (PrimeLocalRing (CoordinateRing R n) p) :=
+    IsLocalization.isLocalization_of_submonoid_le (ChartRing R n)
+      (PrimeLocalRing (CoordinateRing R n) p) _ _ hle
+  letI : Algebra (ChartPolynomialRing R n) (PrimeLocalRing (CoordinateRing R n) p) :=
+    (primeChartPolynomialEvaluation R n p e he).toAlgebra
+  letI : SMul (ChartPolynomialRing R n) (PrimeLocalRing (CoordinateRing R n) p) :=
+    (primeChartPolynomialEvaluation R n p e he).toAlgebra.toSMul
+  letI : IsScalarTower (ChartPolynomialRing R n) (ChartRing R n)
+      (PrimeLocalRing (CoordinateRing R n) p) :=
+    IsScalarTower.of_algebraMap_eq' (R := ChartPolynomialRing R n) (S := ChartRing R n)
+      (A := PrimeLocalRing (CoordinateRing R n) p) rfl
+  exact IsLocalization.localization_localization_isLocalization _ _ _
+
+theorem primeChartForm_perfect (p : PrimeSpectrum (CoordinateRing R n))
+    (e : Equiv.Perm (n ⊕ n)) (he : p ∈ permutationOpen R n e) :
+    Function.Bijective (primeChartForm R n p e) := by
+  letI := (primeChartPolynomialEvaluation R n p e he).toAlgebra
+  letI := IsScalarTower.of_algHom (primeChartPolynomialEvaluation R n p e he)
+  letI := primeChartPolynomial_isLocalization R n p e he
+  have h := (canonicalTrace_localized_equiv (R := R)
+    (S := PrimeLocalRing (CoordinateRing R n) p) (n := n)
+    (IsLocalization.localizationLocalizationSubmodule (Submonoid.powers (chartDet R n))
+      (p.asIdeal.primeCompl.map (permutationChartEmbedding R n e).toRingHom))).bijective
+  rw [show primeChartForm R n p e = canonicalTrace (R := R)
+      (coordinateT (R := R) (S := PrimeLocalRing (CoordinateRing R n) p) (n := n))
+      (coordinateA (R := R) (S := PrimeLocalRing (CoordinateRing R n) p) (n := n)) from ?_]
+  · exact h
+  · unfold primeChartForm
+    rw [← primeChartEvaluation_T R n p e he, ← primeChartEvaluation_A R n p e he]
+    rfl
+
+theorem orbitGlobalTwoForm_perfect (p : maximalRankOpen R n) :
+    Function.Bijective ((orbitGlobalTwoForm R n).val p) := by
+  obtain ⟨e, he⟩ := exists_prime_chart R n p
+  rw [orbitGlobalTwoForm_chart R n p e he]
+  exact primeChartForm_perfect R n p.val e he
+
+end
+end Universality.GlobalSymplectic
+
+namespace Universality.AffineGeometry
+noncomputable section
+open AlgebraicGeometry CategoryTheory CategoryTheory.Limits SquareZeroGeometry AffineForms
+universe u
+variable (R A : Type u) [CommRing R] [CommRing A] [Algebra R A]
+
+/-- The coordinate algebra of the relative tangent scheme of `Spec A`. -/
+abbrev TangentRing : Type u := SymmetricAlgebra A (KaehlerDifferential R A)
+
+def tangentScheme : Scheme.{u} := Spec (.of (TangentRing R A))
+
+def tangentProjection : tangentScheme R A ⟶ Spec (.of A) :=
+  Spec.map (CommRingCat.ofHom (algebraMap A (TangentRing R A)))
+
+def tangentAlgebraHomEquiv (S : Type u) [CommRing S] [Algebra A S]
+    [Algebra R S] [IsScalarTower R A S] :
+    (TangentRing R A →ₐ[A] S) ≃ Derivation R A S :=
+  SymmetricAlgebra.lift.symm.trans (KaehlerDifferential.linearMapEquivDerivation R A).toEquiv
+
+@[simp] theorem tangentAlgebraHomEquiv_symm_apply (S : Type u) [CommRing S] [Algebra A S]
+    [Algebra R S] [IsScalarTower R A S] (D : Derivation R A S) (a : A) :
+    (tangentAlgebraHomEquiv R A S).symm D
+      (SymmetricAlgebra.ι A _ (KaehlerDifferential.D R A a)) = D a := by
+  exact (SymmetricAlgebra.lift_ι_apply _ _).trans (Derivation.liftKaehlerDifferential_comp_D D a)
+
+variable {A} (B : Type u) [CommRing B] [Algebra A B]
+
+def affineOverHomEquiv (T : Scheme.{u}) (x : T ⟶ Spec (.of A)) :
+    {f : T ⟶ Spec (.of B) // f ≫ Spec.map (CommRingCat.ofHom (algebraMap A B)) = x} ≃
+      (letI := (affineCoordinates x).toAlgebra; B →ₐ[A] Γ(T, ⊤)) := by
+  letI := (affineCoordinates x).toAlgebra
+  refine
+    { toFun := fun f =>
+        { __ := affineCoordinates f.val
+          commutes' := fun a => by
+            have h := congrArg affineCoordinates f.property
+            rw [affineCoordinates_specMap] at h
+            exact DFunLike.congr_fun h a }
+      invFun := fun φ => ⟨T.toSpecΓ ≫ Spec.map (CommRingCat.ofHom φ.toRingHom), by
+        apply affineCoordinates_injective
+        rw [affineCoordinates_specMap, affineCoordinates_toSpec]
+        ext a
+        exact φ.commutes a⟩
+      left_inv := ?_
+      right_inv := ?_ }
+  · intro f
+    apply Subtype.ext
+    apply affineCoordinates_injective
+    exact affineCoordinates_toSpec _ _
+  · intro φ
+    apply AlgHom.ext
+    intro b
+    exact DFunLike.congr_fun (affineCoordinates_toSpec _ _) b
+
+variable (A)
+
+def tangentHomEquiv (T : Scheme.{u}) (x : T ⟶ Spec (.of A)) :
+    {f : T ⟶ tangentScheme R A // f ≫ tangentProjection R A = x} ≃
+      (letI := (affineCoordinates x).toAlgebra
+       letI : Algebra R Γ(T, ⊤) := ((affineCoordinates x).comp (algebraMap R A)).toAlgebra
+       Derivation R A Γ(T, ⊤)) := by
+  letI := (affineCoordinates x).toAlgebra
+  letI : Algebra R Γ(T, ⊤) := ((affineCoordinates x).comp (algebraMap R A)).toAlgebra
+  letI : IsScalarTower R A Γ(T, ⊤) :=
+    IsScalarTower.of_algebraMap_eq' (R := R) (S := A) (A := Γ(T, ⊤)) rfl
+  exact (affineOverHomEquiv (TangentRing R A) T x).trans (tangentAlgebraHomEquiv R A Γ(T, ⊤))
+
+def openTangentScheme (U : (Spec (.of A)).Opens) : Scheme.{u} :=
+  pullback (tangentProjection R A) U.ι
+
+def openTangentProjection (U : (Spec (.of A)).Opens) : openTangentScheme R A U ⟶ U.toScheme :=
+  pullback.snd _ _
+
+def openTangentHomEquiv (U : (Spec (.of A)).Opens) (T : Scheme.{u}) (x : T ⟶ U.toScheme) :
+    {f : T ⟶ openTangentScheme R A U // f ≫ openTangentProjection R A U = x} ≃
+      {f : T ⟶ tangentScheme R A // f ≫ tangentProjection R A = x ≫ U.ι} where
+  toFun f := ⟨f.val ≫ pullback.fst _ _, by
+    calc
+      _ = f.val ≫ (pullback.snd (tangentProjection R A) U.ι ≫ U.ι) :=
+        (Category.assoc _ _ _).trans (congrArg (fun h => f.val ≫ h)
+          (pullback.condition (f := tangentProjection R A) (g := U.ι)))
+      _ = x ≫ U.ι := (Category.assoc _ _ _).symm.trans
+        (congrArg (fun h => h ≫ U.ι) f.property)⟩
+  invFun f := ⟨pullback.lift f.val x f.property, pullback.lift_snd _ _ _⟩
+  left_inv f := by
+    apply Subtype.ext
+    apply pullback.hom_ext
+    · exact pullback.lift_fst _ _ _
+    · simpa only [pullback.lift_snd] using f.property.symm
+  right_inv f := Subtype.ext (pullback.lift_fst _ _ _)
+
+def tangentChartIso {I : Type u} (b : Module.Basis I A (KaehlerDifferential R A)) :
+    tangentScheme R A ≅ Spec (.of (MvPolynomial I A)) :=
+  Scheme.Spec.mapIso (SymmetricAlgebra.equivMvPolynomial b).symm.toRingEquiv.toCommRingCatIso.op
+
+theorem tangentChartIso_over {I : Type u} (b : Module.Basis I A (KaehlerDifferential R A)) :
+    (tangentChartIso R A b).hom ≫ Spec.map (CommRingCat.ofHom (algebraMap A (MvPolynomial I A))) =
+      tangentProjection R A := by
+  change Spec.map (CommRingCat.ofHom (SymmetricAlgebra.equivMvPolynomial b).symm.toRingHom) ≫ _ = _
+  rw [← Spec.map_comp, ← CommRingCat.ofHom_comp]
+  congr 1
+  exact CommRingCat.hom_ext (RingHom.ext fun a => (SymmetricAlgebra.equivMvPolynomial b).symm.commutes a)
+
+section BaseChange
+variable [Algebra R B] [IsScalarTower R A B]
+
+def tangentMap : TangentRing R A →+* TangentRing R B := by
+  letI : Algebra A (TangentRing R B) := RingHom.toAlgebra
+    ((algebraMap B (TangentRing R B)).comp (algebraMap A B))
+  letI : IsScalarTower A B (TangentRing R B) :=
+    IsScalarTower.of_algebraMap_eq' (R := A) (S := B) (A := TangentRing R B) rfl
+  let f : KaehlerDifferential R A →ₗ[A] TangentRing R B :=
+    { toFun := fun w => SymmetricAlgebra.ι B _ (KaehlerDifferential.map R R A B w)
+      map_add' := by intros; simp
+      map_smul' := by
+        intro a w
+        rw [map_smul, RingHom.id_apply, ← IsScalarTower.algebraMap_smul B a _, map_smul]
+        rfl }
+  exact (SymmetricAlgebra.lift f).toRingHom
+
+@[simp] theorem tangentMap_algebraMap (a : A) :
+    tangentMap R A B (algebraMap A (TangentRing R A) a) =
+      algebraMap B (TangentRing R B) (algebraMap A B a) :=
+  AlgHom.commutes _ a
+
+@[simp] theorem tangentMap_D (a : A) :
+    tangentMap R A B (SymmetricAlgebra.ι A _ (KaehlerDifferential.D R A a)) =
+      SymmetricAlgebra.ι B _ (KaehlerDifferential.D R B (algebraMap A B a)) := by
+  simp [tangentMap, KaehlerDifferential.map_D]
+
+def tangentSchemeMap : tangentScheme R B ⟶ tangentScheme R A :=
+  Spec.map (CommRingCat.ofHom (tangentMap R A B))
+
+theorem tangentSchemeMap_over :
+    tangentSchemeMap R A B ≫ tangentProjection R A =
+      tangentProjection R B ≫ Spec.map (CommRingCat.ofHom (algebraMap A B)) := by
+  change Spec.map _ ≫ Spec.map _ = Spec.map _ ≫ Spec.map _
+  rw [← Spec.map_comp, ← Spec.map_comp]
+  apply congrArg Spec.map
+  apply CommRingCat.hom_ext
+  exact RingHom.ext (tangentMap_algebraMap R A B)
+
+theorem tangentMap_represents_derivative (S : Type u) [CommRing S] [Algebra B S]
+    [Algebra R S] [IsScalarTower R B S] (D : Derivation R B S) (a : A) :
+    (tangentAlgebraHomEquiv R B S).symm D
+      (tangentMap R A B (SymmetricAlgebra.ι A _ (KaehlerDifferential.D R A a))) =
+        D (algebraMap A B a) := by
+  rw [tangentMap_D, tangentAlgebraHomEquiv_symm_apply]
+
+variable (S : Type u) [CommRing S] [Algebra B S] [Algebra A S] [Algebra R S]
+  [IsScalarTower A B S] [IsScalarTower R B S] [IsScalarTower R A S]
+
+def extendDerivation [Algebra.FormallyEtale A B] (D : Derivation R A S) : Derivation R B S :=
+  ((D.liftKaehlerDifferential.liftBaseChange B).comp
+    (KaehlerDifferential.tensorKaehlerEquivOfFormallyEtale R A B).symm.toLinearMap).compDer
+      (KaehlerDifferential.D R B)
+
+@[simp] theorem extendDerivation_algebraMap [Algebra.FormallyEtale A B]
+    (D : Derivation R A S) (a : A) : extendDerivation R A B S D (algebraMap A B a) = D a := by
+  simp [extendDerivation, KaehlerDifferential.tensorKaehlerEquivOfFormallyEtale_symm_D_algebraMap,
+    LinearMap.liftBaseChange_tmul, Derivation.liftKaehlerDifferential_comp_D]
+
+theorem derivation_ext_of_formallyEtale [Algebra.FormallyEtale A B]
+    (D E : Derivation R B S) (h : ∀ a, D (algebraMap A B a) = E (algebraMap A B a)) : D = E := by
+  have hh : D.liftKaehlerDifferential.comp
+        (KaehlerDifferential.tensorKaehlerEquivOfFormallyEtale R A B).toLinearMap =
+      E.liftKaehlerDifferential.comp
+        (KaehlerDifferential.tensorKaehlerEquivOfFormallyEtale R A B).toLinearMap := by
+    apply LinearMap.restrictScalars_injective A
+    apply TensorProduct.ext
+    ext b a
+    simp [KaehlerDifferential.tensorKaehlerEquivOfFormallyEtale_apply,
+      KaehlerDifferential.mapBaseChange_tmul, KaehlerDifferential.map_D, h]
+  have hl : D.liftKaehlerDifferential = E.liftKaehlerDifferential :=
+    (LinearMap.cancel_right (KaehlerDifferential.tensorKaehlerEquivOfFormallyEtale R A B).surjective).mp hh
+  ext b
+  simpa using LinearMap.congr_fun hl (KaehlerDifferential.D R B b)
+
+end BaseChange
+
+theorem tangentRingHom_ext {S : Type u} [CommRing S] (f g : TangentRing R A →+* S)
+    (hb : ∀ a, f (algebraMap A (TangentRing R A) a) = g (algebraMap A (TangentRing R A) a))
+    (hd : ∀ a, f (SymmetricAlgebra.ι A _ (KaehlerDifferential.D R A a)) =
+      g (SymmetricAlgebra.ι A _ (KaehlerDifferential.D R A a))) : f = g := by
+  letI : Algebra A S := (f.comp (algebraMap A (TangentRing R A))).toAlgebra
+  letI : Algebra R S := ((algebraMap A S).comp (algebraMap R A)).toAlgebra
+  letI : IsScalarTower R A S := IsScalarTower.of_algebraMap_eq' (R := R) (S := A) (A := S) rfl
+  let F : TangentRing R A →ₐ[A] S := { __ := f, commutes' := fun _ => rfl }
+  let G : TangentRing R A →ₐ[A] S := { __ := g, commutes' := fun a => (hb a).symm }
+  have h : F = G := by
+    apply SymmetricAlgebra.algHom_ext
+    apply Derivation.liftKaehlerDifferential_unique
+    ext a
+    exact hd a
+  exact congrArg AlgHom.toRingHom h
+
+set_option synthInstance.maxHeartbeats 100000 in
+set_option maxHeartbeats 800000 in
+theorem tangentMap_isPushout [Algebra R B] [IsScalarTower R A B] [Algebra.FormallyEtale A B] :
+    IsPushout (CommRingCat.ofHom (algebraMap A B))
+      (CommRingCat.ofHom (algebraMap A (TangentRing R A)))
+      (CommRingCat.ofHom (algebraMap B (TangentRing R B)))
+      (CommRingCat.ofHom (tangentMap R A B)) where
+  w := by ext a; exact (tangentMap_algebraMap R A B a).symm
+  isColimit' := ⟨PushoutCocone.isColimitAux' _ fun s => by
+    let S := s.pt
+    letI : Algebra B S := s.inl.hom.toAlgebra
+    letI : Algebra A S := (s.inl.hom.comp (algebraMap A B)).toAlgebra
+    letI : Algebra R S := ((algebraMap A S).comp (algebraMap R A)).toAlgebra
+    letI : IsScalarTower A B S := IsScalarTower.of_algebraMap_eq' (R := A) (S := B) (A := S) rfl
+    letI : IsScalarTower R A S := IsScalarTower.of_algebraMap_eq' (R := R) (S := A) (A := S) rfl
+    letI : IsScalarTower R B S := IsScalarTower.of_algebraMap_eq' (R := R) (S := B) (A := S)
+      (by ext r; exact congrArg s.inl.hom (IsScalarTower.algebraMap_apply R A B r).symm)
+    have hb (a : A) : s.inl.hom (algebraMap A B a) =
+        s.inr.hom (algebraMap A (TangentRing R A) a) :=
+      congrArg (fun f => f.hom a) s.condition
+    let F : TangentRing R A →ₐ[A] S := { __ := s.inr.hom, commutes' := fun a => (hb a).symm }
+    let D := tangentAlgebraHomEquiv R A S F
+    have hD (a : A) : F (SymmetricAlgebra.ι A _ (KaehlerDifferential.D R A a)) = D a := by
+      simpa only [D, Equiv.symm_apply_apply] using tangentAlgebraHomEquiv_symm_apply R A S D a
+    let E := extendDerivation R A B S D
+    let L := (tangentAlgebraHomEquiv R B S).symm E
+    have h₁ : CommRingCat.ofHom (algebraMap B (TangentRing R B)) ≫
+        CommRingCat.ofHom L.toRingHom = s.inl := by
+      ext b
+      exact L.commutes b
+    have h₂ : CommRingCat.ofHom (tangentMap R A B) ≫
+        CommRingCat.ofHom L.toRingHom = s.inr := by
+      apply CommRingCat.hom_ext
+      apply tangentRingHom_ext R A
+      · intro a
+        change L (tangentMap R A B (algebraMap A _ a)) = _
+        rw [tangentMap_algebraMap, L.commutes]
+        exact hb a
+      · intro a
+        change L (tangentMap R A B (SymmetricAlgebra.ι A _ (KaehlerDifferential.D R A a))) = _
+        rw [tangentMap_D, tangentAlgebraHomEquiv_symm_apply, extendDerivation_algebraMap]
+        exact (hD a).symm
+    refine ⟨CommRingCat.ofHom L.toRingHom, h₁, h₂, ?_⟩
+    intro m hm₁ hm₂
+    let M : TangentRing R B →ₐ[B] S :=
+      { __ := m.hom, commutes' := fun b => congrArg (fun f => f.hom b) hm₁ }
+    have hM (b : B) : M (SymmetricAlgebra.ι B _ (KaehlerDifferential.D R B b)) =
+        tangentAlgebraHomEquiv R B S M b := by
+      simpa only [Equiv.symm_apply_apply] using
+        tangentAlgebraHomEquiv_symm_apply R B S (tangentAlgebraHomEquiv R B S M) b
+    have hE : tangentAlgebraHomEquiv R B S M = E := by
+      apply derivation_ext_of_formallyEtale R A B S
+      intro a
+      rw [← hM, extendDerivation_algebraMap, ← hD, ← tangentMap_D]
+      exact congrArg (fun f => f.hom (SymmetricAlgebra.ι A _ (KaehlerDifferential.D R A a))) hm₂
+    apply CommRingCat.hom_ext
+    exact congrArg AlgHom.toRingHom ((tangentAlgebraHomEquiv R B S).injective
+      (hE.trans ((tangentAlgebraHomEquiv R B S).apply_symm_apply E).symm))⟩
+
+def tangentBaseChangeIso [Algebra R B] [IsScalarTower R A B] [Algebra.FormallyEtale A B] :
+    tangentScheme R B ≅ pullback (Spec.map (CommRingCat.ofHom (algebraMap A B)))
+      (tangentProjection R A) :=
+  (isPullback_SpecMap_of_isPushout _ _ _ _ (tangentMap_isPushout R A B)).isoPullback
+
+section OpenChart
+variable [Algebra R B] [IsScalarTower R A B] [Algebra.FormallyEtale A B]
+variable (U : (Spec (.of A)).Opens) (c : Spec (.of B) ⟶ U.toScheme)
+  (hc : c ≫ U.ι = Spec.map (CommRingCat.ofHom (algebraMap A B)))
+
+def tangentLiftToOpen : tangentScheme R B ⟶ openTangentScheme R A U :=
+  pullback.lift (Spec.map (CommRingCat.ofHom (tangentMap R A B)))
+    (tangentProjection R B ≫ c) (by
+      rw [Category.assoc, hc]
+      exact (isPullback_SpecMap_of_isPushout _ _ _ _ (tangentMap_isPushout R A B)).w.symm)
+
+theorem tangentLiftToOpen_isPullback :
+    IsPullback (tangentLiftToOpen R A B U c hc) (tangentProjection R B)
+      (openTangentProjection R A U) c := by
+  have hp := (isPullback_SpecMap_of_isPushout _ _ _ _ (tangentMap_isPushout R A B)).flip
+  have hp' : IsPullback
+      (tangentLiftToOpen R A B U c hc ≫ pullback.fst (tangentProjection R A) U.ι)
+      (tangentProjection R B) (tangentProjection R A) (c ≫ U.ι) := by
+    have hfst : tangentLiftToOpen R A B U c hc ≫ pullback.fst (tangentProjection R A) U.ι =
+        Spec.map (CommRingCat.ofHom (tangentMap R A B)) := pullback.lift_fst _ _ _
+    rw [hfst, hc]
+    exact hp
+  exact hp'.of_right (pullback.lift_snd _ _ _) (IsPullback.of_hasPullback _ _)
+
+def openTangentChartIso {I : Type u} (b : Module.Basis I B (KaehlerDifferential R B)) :
+    pullback (openTangentProjection R A U) c ≅ Spec (.of (MvPolynomial I B)) :=
+  (tangentLiftToOpen_isPullback R A B U c hc).isoPullback.symm ≪≫ tangentChartIso R B b
+
+theorem openTangentChartIso_over {I : Type u} (b : Module.Basis I B (KaehlerDifferential R B)) :
+    (openTangentChartIso R A B U c hc b).hom ≫
+      Spec.map (CommRingCat.ofHom (algebraMap B (MvPolynomial I B))) =
+        pullback.snd (openTangentProjection R A U) c := by
+  change ((tangentLiftToOpen_isPullback R A B U c hc).isoPullback.inv ≫
+    (tangentChartIso R B b).hom) ≫ _ = _
+  rw [Category.assoc, tangentChartIso_over]
+  exact (tangentLiftToOpen_isPullback R A B U c hc).isoPullback_inv_snd
+
+end OpenChart
+
+end
+end Universality.AffineGeometry
+
+namespace Universality.GlobalSymplectic
+noncomputable section
+open AffineGeometry AffineForms SquareZeroGeometry AlgebraicGeometry CategoryTheory CategoryTheory.Limits
+universe u
+variable (R n : Type u) [CommRing R] [Fintype n] [DecidableEq n]
+
+def orbitTangentScheme : Scheme.{u} :=
+  openTangentScheme R (CoordinateRing R n) (maximalRankOpen R n)
+
+def orbitTangentProjection : orbitTangentScheme R n ⟶ maximalRankScheme R n :=
+  openTangentProjection R (CoordinateRing R n) (maximalRankOpen R n)
+
+def orbitProjectionTangentMap :
+    tangentScheme R (GeneralLinearRing R n) ⟶ orbitTangentScheme R n := by
+  letI := (orbitCoordinateMap R n).toAlgebra
+  letI := IsScalarTower.of_algHom (orbitCoordinateMap R n)
+  exact pullback.lift (tangentSchemeMap R (CoordinateRing R n) (GeneralLinearRing R n))
+    (tangentProjection R (GeneralLinearRing R n) ≫ orbitProjection R n) (by
+      exact (tangentSchemeMap_over R (CoordinateRing R n) (GeneralLinearRing R n)).trans
+        ((congrArg (fun h => tangentProjection R (GeneralLinearRing R n) ≫ h)
+          (orbitProjection_ι R n).symm).trans (Category.assoc _ _ _).symm))
+
+theorem orbitProjectionTangentMap_over :
+    orbitProjectionTangentMap R n ≫ orbitTangentProjection R n =
+      tangentProjection R (GeneralLinearRing R n) ≫ orbitProjection R n :=
+  pullback.lift_snd _ _ _
+
+theorem orbitProjectionTangentMap_affine :
+    letI := (orbitCoordinateMap R n).toAlgebra
+    letI := IsScalarTower.of_algHom (orbitCoordinateMap R n)
+    orbitProjectionTangentMap R n ≫
+      pullback.fst (tangentProjection R (CoordinateRing R n)) (maximalRankOpen R n).ι =
+        tangentSchemeMap R (CoordinateRing R n) (GeneralLinearRing R n) := by
+  letI := (orbitCoordinateMap R n).toAlgebra
+  letI := IsScalarTower.of_algHom (orbitCoordinateMap R n)
+  exact pullback.lift_fst _ _ _
+
+theorem orbitProjectionTangentMap_commutator
+    (D : Derivation R (GeneralLinearRing R n) (GeneralLinearRing R n)) :
+    letI := (orbitCoordinateMap R n).toAlgebra
+    letI := IsScalarTower.of_algHom (orbitCoordinateMap R n)
+    (fun i j => (tangentAlgebraHomEquiv R (GeneralLinearRing R n) (GeneralLinearRing R n)).symm D
+      (tangentMap R (CoordinateRing R n) (GeneralLinearRing R n)
+        (SymmetricAlgebra.ι _ _ (KaehlerDifferential.D R _ (universalMatrix R n i j))))) =
+      Symplectic.comm (rightMaurerCartan (generalLinearUnit R n) D)
+        ((universalMatrix R n).map (orbitCoordinateMap R n)) := by
+  letI := (orbitCoordinateMap R n).toAlgebra
+  letI := IsScalarTower.of_algHom (orbitCoordinateMap R n)
+  simp only [tangentMap_represents_derivative]
+  exact orbitProjection_derivative R n D
+
+def orbitChartMap (e : Equiv.Perm (n ⊕ n)) : Spec (.of (ChartRing R n)) ⟶ maximalRankScheme R n :=
+  (SquareZeroGeometry.orbitChartIso R n e).inv ≫ (orbitChartOpen R n e).ι
+
+theorem orbitChartMap_over (e : Equiv.Perm (n ⊕ n)) :
+    orbitChartMap R n e ≫ (maximalRankOpen R n).ι =
+      Spec.map (CommRingCat.ofHom (permutationChartEmbedding R n e).toRingHom) := by
+  simpa only [orbitChartMap, Category.assoc] using
+    (orbitSymplecticAtlas R n).orbitChart_embedding e
+
+def orbitTangentChartIso (e : Equiv.Perm (n ⊕ n)) :
+    pullback (orbitTangentProjection R n) (orbitChartMap R n e) ≅
+      Spec (.of (MvPolynomial ((n × n) ⊕ (n × n)) (ChartRing R n))) := by
+  letI := (permutationChartEmbedding R n e).toAlgebra
+  letI : IsScalarTower R (CoordinateRing R n) (ChartRing R n) :=
+    IsScalarTower.of_algebraMap_eq' (R := R) (S := CoordinateRing R n) (A := ChartRing R n)
+      (RingHom.ext fun r => ((permutationChartEmbedding R n e).commutes r).symm)
+  letI := permutationChart_isLocalization R n e
+  letI : Algebra.FormallyEtale (CoordinateRing R n) (ChartRing R n) :=
+    Algebra.FormallyEtale.of_isLocalization (Rₘ := ChartRing R n) (Submonoid.powers (chartMinor R n e))
+  exact openTangentChartIso R (CoordinateRing R n) (ChartRing R n) (maximalRankOpen R n)
+    (orbitChartMap R n e) (orbitChartMap_over R n e)
+    (localizedDifferentialBasis (R := R) (S := ChartRing R n) (Submonoid.powers (chartDet R n)))
+
+theorem orbitTangentChartIso_over (e : Equiv.Perm (n ⊕ n)) :
+    (orbitTangentChartIso R n e).hom ≫
+      Spec.map (CommRingCat.ofHom (algebraMap (ChartRing R n)
+        (MvPolynomial ((n × n) ⊕ (n × n)) (ChartRing R n)))) =
+      pullback.snd (orbitTangentProjection R n) (orbitChartMap R n e) := by
+  letI := (permutationChartEmbedding R n e).toAlgebra
+  letI : IsScalarTower R (CoordinateRing R n) (ChartRing R n) :=
+    IsScalarTower.of_algebraMap_eq' (R := R) (S := CoordinateRing R n) (A := ChartRing R n)
+      (RingHom.ext fun r => ((permutationChartEmbedding R n e).commutes r).symm)
+  letI := permutationChart_isLocalization R n e
+  letI : Algebra.FormallyEtale (CoordinateRing R n) (ChartRing R n) :=
+    Algebra.FormallyEtale.of_isLocalization (Rₘ := ChartRing R n) (Submonoid.powers (chartMinor R n e))
+  exact openTangentChartIso_over R (CoordinateRing R n) (ChartRing R n) (maximalRankOpen R n)
+    (orbitChartMap R n e) (orbitChartMap_over R n e)
+    (localizedDifferentialBasis (R := R) (S := ChartRing R n) (Submonoid.powers (chartDet R n)))
+
+def orbitTangentHomEquiv (T : Scheme.{u}) (x : T ⟶ maximalRankScheme R n) :
+    {f : T ⟶ orbitTangentScheme R n // f ≫ orbitTangentProjection R n = x} ≃
+      (letI := (affineCoordinates (x ≫ (maximalRankOpen R n).ι)).toAlgebra
+       letI : Algebra R Γ(T, ⊤) :=
+         ((affineCoordinates (x ≫ (maximalRankOpen R n).ι)).comp
+           (algebraMap R (CoordinateRing R n))).toAlgebra
+       Derivation R (CoordinateRing R n) Γ(T, ⊤)) :=
+  (openTangentHomEquiv R (CoordinateRing R n) (maximalRankOpen R n) T x).trans
+    (tangentHomEquiv R (CoordinateRing R n) T (x ≫ (maximalRankOpen R n).ι))
+
+end
+end Universality.GlobalSymplectic
+
+namespace Universality.ExteriorGeometry
+noncomputable section
+open scoped TensorProduct
+open AffineForms AlgebraicGeometry CategoryTheory TopologicalSpace Opposite
+universe u
+variable (A : Type u) [CommRing A]
+variable {M N : Type u} [AddCommGroup M] [Module A M] [AddCommGroup N] [Module A N]
+
+def alternatingToBilinear (f : AlternatingMap A M N (Fin 2)) : LinearMap.BilinMap A M N :=
+  LinearMap.mk₂ A (fun x y => f ![x, y])
+    (fun x y z => f.map_vecCons_add ![z] x y)
+    (fun a x y => f.map_vecCons_smul ![y] a x)
+    (fun x y z => by simpa using (f.curryLeft x).map_vecCons_add ![] y z)
+    (fun a x y => by simpa using (f.curryLeft x).map_vecCons_smul ![] a y)
+
+@[simp] theorem alternatingToBilinear_apply (f : AlternatingMap A M N (Fin 2)) (x y : M) :
+    alternatingToBilinear A f x y = f ![x, y] := rfl
+
+def bilinearToAlternating (f : LinearMap.BilinMap A M N) (h : ∀ x, f x x = 0) :
+    AlternatingMap A M N (Fin 2) where
+  toFun v := f (v 0) (v 1)
+  map_update_add' v i x y := by fin_cases i <;> simp
+  map_update_smul' v i a x := by fin_cases i <;> simp
+  map_eq_zero_of_eq' v i j hij hne := by
+    fin_cases i <;> fin_cases j <;> simp_all
+
+@[simp] theorem bilinearToAlternating_apply (f : LinearMap.BilinMap A M N)
+    (h : ∀ x, f x x = 0) (v : Fin 2 → M) :
+    bilinearToAlternating A f h v = f (v 0) (v 1) := rfl
+
+def wedgeBilinear : LinearMap.BilinMap A M (⋀[A]^2 M) :=
+  alternatingToBilinear A (exteriorPower.ιMulti A 2)
+
+@[simp] theorem wedgeBilinear_apply (x y : M) :
+    wedgeBilinear A x y = exteriorPower.ιMulti A 2 ![x, y] := rfl
+
+theorem wedgeBilinear_self (x : M) : wedgeBilinear A x x = 0 := by
+  exact (exteriorPower.ιMulti A 2).map_eq_zero_of_eq ![x, x] (i := 0) (j := 1) rfl (by decide)
+
+theorem wedgeBilinear_swap (x y : M) : wedgeBilinear A x y = -wedgeBilinear A y x := by
+  have h := wedgeBilinear_self A (x + y)
+  simp only [map_add, LinearMap.add_apply, wedgeBilinear_self, zero_add, add_zero] at h
+  exact eq_neg_of_add_eq_zero_right h
+
+variable (S : Type u) [CommRing S] [Algebra A S]
+
+local instance (priority := 100) exteriorScalarModule (P : Type u) [AddCommGroup P] [Module S P] :
+    Module A (⋀[S]^2 P) := Module.compHom _ (algebraMap A S)
+
+local instance (priority := 100) exteriorScalarTower (P : Type u) [AddCommGroup P] [Module S P] :
+    IsScalarTower A S (⋀[S]^2 P) := IsScalarTower.of_algebraMap_smul fun _ _ => rfl
+
+def wedgeBaseChangeBilinear :
+    LinearMap.BilinMap S (S ⊗[A] M) (S ⊗[A] (⋀[A]^2 M)) :=
+  (wedgeBilinear A).baseChange S
+
+theorem wedgeBaseChangeBilinear_swap (x y : S ⊗[A] M) :
+    wedgeBaseChangeBilinear A S x y = -wedgeBaseChangeBilinear A S y x := by
+  induction x with
+  | zero => simp [wedgeBaseChangeBilinear]
+  | add x y hx hy => simp only [map_add, LinearMap.add_apply, hx, hy, neg_add]
+  | tmul s x =>
+    induction y with
+    | zero => simp [wedgeBaseChangeBilinear]
+    | add y z hy hz => simp only [map_add, LinearMap.add_apply, hy, hz, neg_add]
+    | tmul t y =>
+      change (s * t) ⊗ₜ wedgeBilinear A x y = -(t * s) ⊗ₜ wedgeBilinear A y x
+      rw [wedgeBilinear_swap, TensorProduct.tmul_neg, mul_comm]
+
+theorem wedgeBaseChangeBilinear_self (x : S ⊗[A] M) : wedgeBaseChangeBilinear A S x x = 0 := by
+  induction x with
+  | zero => simp [wedgeBaseChangeBilinear]
+  | tmul s x =>
+    change (s * s) ⊗ₜ wedgeBilinear A x x = 0
+    rw [wedgeBilinear_self, TensorProduct.tmul_zero]
+  | add x y hx hy =>
+    simp only [map_add, LinearMap.add_apply, hx, hy, zero_add, add_zero]
+    exact add_eq_zero_iff_eq_neg.mpr (wedgeBaseChangeBilinear_swap A S y x)
+
+def exteriorTwoToBaseChange : ⋀[S]^2 (S ⊗[A] M) →ₗ[S] S ⊗[A] (⋀[A]^2 M) :=
+  exteriorPower.alternatingMapLinearEquiv
+    (bilinearToAlternating S (wedgeBaseChangeBilinear A S) (wedgeBaseChangeBilinear_self A S))
+
+@[simp] theorem exteriorTwoToBaseChange_wedge (s t : S) (x y : M) :
+    exteriorTwoToBaseChange A S (exteriorPower.ιMulti S 2 ![s ⊗ₜ x, t ⊗ₜ y]) =
+      (s * t) ⊗ₜ exteriorPower.ιMulti A 2 ![x, y] := by
+  simp [exteriorTwoToBaseChange, wedgeBaseChangeBilinear]
+
+def baseChangeWedgeAlternating : AlternatingMap A M (⋀[S]^2 (S ⊗[A] M)) (Fin 2) :=
+  AlternatingMap.compLinearMap
+    { (exteriorPower.ιMulti S 2).toMultilinearMap.restrictScalars A with
+      map_eq_zero_of_eq' := fun v _ _ h hne =>
+        (exteriorPower.ιMulti S 2).map_eq_zero_of_eq v h hne }
+    (TensorProduct.mk A S M 1)
+
+def exteriorTwoFromBaseChange : S ⊗[A] (⋀[A]^2 M) →ₗ[S] ⋀[S]^2 (S ⊗[A] M) :=
+  (exteriorPower.alternatingMapLinearEquiv (baseChangeWedgeAlternating A S)).liftBaseChange S
+
+@[simp] theorem exteriorTwoFromBaseChange_wedge (s : S) (x y : M) :
+    exteriorTwoFromBaseChange A S (s ⊗ₜ exteriorPower.ιMulti A 2 ![x, y]) =
+      s • exteriorPower.ιMulti S 2 ![1 ⊗ₜ x, 1 ⊗ₜ y] := by
+  simp [exteriorTwoFromBaseChange, baseChangeWedgeAlternating]
+  congr 1
+
+theorem exteriorTwoToFromBaseChange :
+    (exteriorTwoToBaseChange A S (M := M)).comp (exteriorTwoFromBaseChange A S) = LinearMap.id := by
+  apply LinearMap.restrictScalars_injective A
+  apply TensorProduct.ext
+  apply LinearMap.ext
+  intro s
+  apply exteriorPower.linearMap_ext
+  apply AlternatingMap.ext
+  intro v
+  change exteriorTwoToBaseChange A S (exteriorTwoFromBaseChange A S (s ⊗ₜ exteriorPower.ιMulti A 2 v)) =
+    s ⊗ₜ exteriorPower.ιMulti A 2 v
+  have hv : v = ![v 0, v 1] := by ext i; fin_cases i <;> rfl
+  rw [hv]
+  simp [TensorProduct.smul_tmul']
+
+theorem exteriorTwoFromToBaseChange :
+    (exteriorTwoFromBaseChange A S (M := M)).comp (exteriorTwoToBaseChange A S) = LinearMap.id := by
+  apply exteriorPower.linearMap_ext
+  apply AlternatingMap.ext
+  intro v
+  change exteriorTwoFromBaseChange A S (exteriorTwoToBaseChange A S (exteriorPower.ιMulti S 2 v)) =
+    exteriorPower.ιMulti S 2 v
+  have hv : v = ![v 0, v 1] := by ext i; fin_cases i <;> rfl
+  rw [hv]
+  generalize v 0 = x, v 1 = y
+  induction x with
+  | zero =>
+    have hzero : exteriorPower.ιMulti S 2 ![0, y] = 0 := by
+      change wedgeBilinear S 0 y = 0
+      simp only [map_zero, LinearMap.zero_apply]
+    rw [hzero, map_zero, map_zero]
+  | add x z hx hz =>
+    simp only [AlternatingMap.map_vecCons_add, map_add, hx, hz]
+  | tmul s x =>
+    induction y with
+    | zero =>
+      have hzero : exteriorPower.ιMulti S 2 ![s ⊗ₜ[A] x, 0] = 0 := by
+        change wedgeBilinear S (s ⊗ₜ[A] x) 0 = 0
+        exact map_zero _
+      rw [hzero, map_zero, map_zero]
+    | add y z hy hz =>
+      have hadd (f : AlternatingMap S (S ⊗[A] M) (⋀[S]^2 (S ⊗[A] M)) (Fin 2)) :
+          f ![s ⊗ₜ x, y + z] = f ![s ⊗ₜ x, y] + f ![s ⊗ₜ x, z] := by
+        simpa using (f.curryLeft (s ⊗ₜ x)).map_vecCons_add ![] y z
+      rw [hadd (exteriorPower.ιMulti S 2)]
+      simp only [map_add, hy, hz]
+    | tmul t y =>
+      simp only [exteriorTwoToBaseChange_wedge, exteriorTwoFromBaseChange_wedge]
+      rw [show s ⊗ₜ[A] x = s • ((1 : S) ⊗ₜ[A] x) by simp [TensorProduct.smul_tmul'],
+        show t ⊗ₜ[A] y = t • ((1 : S) ⊗ₜ[A] y) by simp [TensorProduct.smul_tmul']]
+      rw [AlternatingMap.map_vecCons_smul]
+      have hsmul := (exteriorPower.ιMulti S 2).curryLeft ((1 : S) ⊗ₜ[A] x) |>.map_vecCons_smul ![] t ((1 : S) ⊗ₜ[A] y)
+      simpa only [AlternatingMap.curryLeft_apply_apply, smul_smul] using
+        (congrArg (fun z => s • z) hsmul).symm
+
+def exteriorTwoBaseChangeEquiv : S ⊗[A] (⋀[A]^2 M) ≃ₗ[S] ⋀[S]^2 (S ⊗[A] M) :=
+  { exteriorTwoFromBaseChange A S with
+    invFun := exteriorTwoToBaseChange A S
+    left_inv := fun w => LinearMap.congr_fun (exteriorTwoToFromBaseChange A S) w
+    right_inv := fun w => LinearMap.congr_fun (exteriorTwoFromToBaseChange A S) w }
+
+def exteriorTwoCongr (e : M ≃ₗ[A] N) : (⋀[A]^2 M) ≃ₗ[A] (⋀[A]^2 N) :=
+  { exteriorPower.map 2 e.toLinearMap with
+    invFun := exteriorPower.map 2 e.symm.toLinearMap
+    left_inv := fun w => by
+      change exteriorPower.map 2 e.symm.toLinearMap (exteriorPower.map 2 e.toLinearMap w) = w
+      rw [← LinearMap.comp_apply, ← exteriorPower.map_comp, e.symm_comp, exteriorPower.map_id]
+      rfl
+    right_inv := fun w => by
+      change exteriorPower.map 2 e.toLinearMap (exteriorPower.map 2 e.symm.toLinearMap w) = w
+      rw [← LinearMap.comp_apply, ← exteriorPower.map_comp, e.comp_symm, exteriorPower.map_id]
+      rfl }
+
+@[simp] theorem exteriorTwoCongr_wedge (e : M ≃ₗ[A] N) (x y : M) :
+    exteriorTwoCongr A e (exteriorPower.ιMulti A 2 ![x, y]) =
+      exteriorPower.ιMulti A 2 ![e x, e y] := by
+  change exteriorPower.map 2 e.toLinearMap _ = _
+  rw [exteriorPower.map_apply_ιMulti]
+  congr 1
+  funext i
+  fin_cases i <;> rfl
+
+section Kaehler
+variable (R : Type u) [CommRing R] [Algebra R A] [Algebra R S] [IsScalarTower R A S]
+
+abbrev KaehlerTwoForms : Type u := ⋀[A]^2 (KaehlerDifferential R A)
+
+def kaehlerExteriorMap : KaehlerTwoForms A R →ₗ[A] KaehlerTwoForms S R :=
+  exteriorPower.alternatingMapLinearEquiv <|
+    AlternatingMap.compLinearMap
+      { (exteriorPower.ιMulti S 2).toMultilinearMap.restrictScalars A with
+        map_eq_zero_of_eq' := fun v _ _ h hne =>
+          (exteriorPower.ιMulti S 2).map_eq_zero_of_eq v h hne }
+      (KaehlerDifferential.map R R A S)
+
+@[simp] theorem kaehlerExteriorMap_wedge (x y : KaehlerDifferential R A) :
+    kaehlerExteriorMap A S R (exteriorPower.ιMulti A 2 ![x, y]) =
+      exteriorPower.ιMulti S 2 ![KaehlerDifferential.map R R A S x, KaehlerDifferential.map R R A S y] := by
+  simp [kaehlerExteriorMap]
+  congr 1
+  funext i
+  fin_cases i <;> rfl
+
+def kaehlerExteriorBaseChangeEquiv [Algebra.FormallyEtale A S] :
+    S ⊗[A] KaehlerTwoForms A R ≃ₗ[S] KaehlerTwoForms S R :=
+  (exteriorTwoBaseChangeEquiv A S).trans
+    (exteriorTwoCongr S (KaehlerDifferential.tensorKaehlerEquivOfFormallyEtale R A S))
+
+theorem kaehlerExterior_isBaseChange [Algebra.FormallyEtale A S] :
+    IsBaseChange S (kaehlerExteriorMap A S R) := by
+  apply IsBaseChange.of_equiv (kaehlerExteriorBaseChangeEquiv A S R)
+  have h : ((kaehlerExteriorBaseChangeEquiv A S R).toLinearMap.restrictScalars A).comp
+        (TensorProduct.mk A S (KaehlerTwoForms A R) 1) = kaehlerExteriorMap A S R := by
+    apply exteriorPower.linearMap_ext
+    apply AlternatingMap.ext
+    intro v
+    have hv : v = ![v 0, v 1] := by ext i; fin_cases i <;> rfl
+    rw [hv]
+    change exteriorTwoCongr S (KaehlerDifferential.tensorKaehlerEquivOfFormallyEtale R A S)
+      (exteriorTwoFromBaseChange A S (1 ⊗ₜ exteriorPower.ιMulti A 2 ![v 0, v 1])) = _
+    simp only [exteriorTwoFromBaseChange_wedge, one_smul, exteriorTwoCongr_wedge,
+      KaehlerDifferential.tensorKaehlerEquivOfFormallyEtale_apply,
+      KaehlerDifferential.mapBaseChange_tmul]
+    simp
+  intro w
+  exact LinearMap.congr_fun h w
+
+theorem kaehlerExterior_isLocalizedModule (N : Submonoid A) [IsLocalization N S] :
+    IsLocalizedModule N (kaehlerExteriorMap A S R) := by
+  letI := Algebra.FormallyEtale.of_isLocalization (Rₘ := S) N
+  exact (isLocalizedModule_iff_isBaseChange N S _).mpr (kaehlerExterior_isBaseChange A S R)
+
+end Kaehler
+
+def exteriorEvaluation : (⋀[A]^2 M) →ₗ[A] Module.Dual A (⋀[A]^2 (Module.Dual A M)) :=
+  (exteriorPower.pairingDual A (Module.Dual A M) 2).comp
+    (exteriorPower.map 2 (Module.Dual.eval A M))
+
+theorem exteriorEvaluation_pairing (w : ⋀[A]^2 M) (v : Fin 2 → Module.Dual A M) :
+    exteriorEvaluation A w (exteriorPower.ιMulti A 2 v) =
+      exteriorPower.pairingDual A M 2 (exteriorPower.ιMulti A 2 v) w := by
+  have h : (Module.Dual.eval A (⋀[A]^2 (Module.Dual A M)) (exteriorPower.ιMulti A 2 v)).comp
+        (exteriorEvaluation A) = exteriorPower.pairingDual A M 2 (exteriorPower.ιMulti A 2 v) := by
+    apply exteriorPower.linearMap_ext
+    apply AlternatingMap.ext
+    intro x
+    simp [exteriorEvaluation, exteriorPower.pairingDual_ιMulti_ιMulti,
+      Matrix.det_fin_two, mul_comm]
+  exact LinearMap.congr_fun h w
+
+theorem exteriorEvaluation_injective {I : Type*} [LinearOrder I] (b : Module.Basis I A M) :
+    Function.Injective (exteriorEvaluation A (M := M)) := by
+  intro x y h
+  apply (b.exteriorPower 2).repr.injective
+  ext s
+  rw [exteriorPower.basis_repr_apply, exteriorPower.basis_repr_apply]
+  have hh := congrArg (fun f => f (exteriorPower.ιMulti_family A 2 b.coord s)) h
+  simpa only [exteriorPower.ιMulti_family, exteriorEvaluation_pairing,
+    exteriorPower.ιMultiDual] using hh
+
+section KaehlerEvaluation
+variable (R : Type u) [CommRing R] [Algebra R A]
+
+def kaehlerTwoEvaluation : KaehlerTwoForms A R →ₗ[A]
+    LinearMap.BilinForm A (Derivation R A A) where
+  toFun w := alternatingToBilinear A
+    ((exteriorPower.alternatingMapLinearEquiv.symm (exteriorEvaluation A w)).compLinearMap
+      (KaehlerDifferential.linearMapEquivDerivation R A).symm.toLinearMap)
+  map_add' x y := by
+    ext D E
+    simp [alternatingToBilinear_apply]
+  map_smul' a w := by
+    ext D E
+    simp [alternatingToBilinear_apply]
+
+theorem kaehlerTwoEvaluation_wedge (x y : KaehlerDifferential R A) (D E : Derivation R A A) :
+    kaehlerTwoEvaluation A R (exteriorPower.ιMulti A 2 ![x, y]) D E =
+      D.liftKaehlerDifferential x * E.liftKaehlerDifferential y -
+        E.liftKaehlerDifferential x * D.liftKaehlerDifferential y := by
+  simp [kaehlerTwoEvaluation, alternatingToBilinear_apply, exteriorEvaluation,
+    exteriorPower.pairingDual_ιMulti_ιMulti, Matrix.det_fin_two, mul_comm]
+
+@[simp] theorem kaehlerTwoEvaluation_D_wedge (a b : A) :
+    kaehlerTwoEvaluation A R
+      (exteriorPower.ιMulti A 2 ![KaehlerDifferential.D R A a, KaehlerDifferential.D R A b]) =
+        coordinateForm (R := R) a b := by
+  ext D E
+  simp [kaehlerTwoEvaluation_wedge, coordinateForm_apply]
+
+theorem kaehlerTwoEvaluation_injective {I : Type*} [LinearOrder I]
+    (b : Module.Basis I A (KaehlerDifferential R A)) :
+    Function.Injective (kaehlerTwoEvaluation A R) := by
+  intro x y h
+  apply exteriorEvaluation_injective A b
+  apply exteriorPower.linearMap_ext
+  apply AlternatingMap.ext
+  intro v
+  have hh := LinearMap.congr_fun (LinearMap.congr_fun h
+    (KaehlerDifferential.linearMapEquivDerivation R A (v 0)))
+    (KaehlerDifferential.linearMapEquivDerivation R A (v 1))
+  have hv : v = ![v 0, v 1] := by ext i; fin_cases i <;> rfl
+  rw [hv]
+  have he : (fun i : Fin 2 =>
+      (![KaehlerDifferential.linearMapEquivDerivation R A (v 0),
+        KaehlerDifferential.linearMapEquivDerivation R A (v 1)] i).liftKaehlerDifferential) =
+        ![v 0, v 1] := by
+    funext i
+    fin_cases i <;>
+      exact (KaehlerDifferential.linearMapEquivDerivation R A).symm_apply_apply _
+  simpa [kaehlerTwoEvaluation, alternatingToBilinear_apply,
+    exteriorPower.alternatingMapLinearEquiv_symm_apply, he] using hh
+
+end KaehlerEvaluation
+
+section Expressions
+variable (R : Type u) [CommRing R] [Algebra R A]
+
+theorem kaehlerTwo_span :
+    Submodule.span A (Set.range (fun ab : A × A => exteriorPower.ιMulti A 2
+      ![KaehlerDifferential.D R A ab.1, KaehlerDifferential.D R A ab.2])) = ⊤ := by
+  have h := exteriorPower.ιMulti_span_of_span A 2 (KaehlerDifferential R A)
+    (KaehlerDifferential.span_range_derivation R A)
+  rw [← top_le_iff] at h ⊢
+  apply h.trans
+  apply Submodule.span_mono
+  rintro _ ⟨v, hv, rfl⟩
+  obtain ⟨a, ha⟩ := hv (Set.mem_range_self 0)
+  obtain ⟨b, hb⟩ := hv (Set.mem_range_self 1)
+  refine ⟨(a, b), congrArg (exteriorPower.ιMulti A 2) ?_⟩
+  ext i
+  fin_cases i <;> assumption
+
+set_option maxHeartbeats 800000 in
+theorem kaehlerTwo_expression (w : KaehlerTwoForms A R) :
+    ∃ (I : Type u) (_ : Fintype I) (c a b : I → A),
+      w = ∑ i, c i • exteriorPower.ιMulti A 2
+        ![KaehlerDifferential.D R A (a i), KaehlerDifferential.D R A (b i)] := by
+  classical
+  have hw : w ∈ Submodule.span A (Set.range (fun ab : A × A => exteriorPower.ιMulti A 2
+      ![KaehlerDifferential.D R A ab.1, KaehlerDifferential.D R A ab.2])) := by
+    rw [kaehlerTwo_span A R]
+    trivial
+  obtain ⟨l, hl⟩ := Finsupp.mem_span_range_iff_exists_finsupp.mp hw
+  refine ⟨l.support, inferInstance, (fun i => l i), (fun i => i.val.1), (fun i => i.val.2), ?_⟩
+  change w = ∑ i ∈ l.support.attach, l i.val • exteriorPower.ιMulti A 2
+    ![KaehlerDifferential.D R A i.val.1, KaehlerDifferential.D R A i.val.2]
+  exact hl.symm.trans (Finset.sum_attach l.support (fun i : A × A =>
+    l i • exteriorPower.ιMulti A 2
+      ![KaehlerDifferential.D R A i.1, KaehlerDifferential.D R A i.2])).symm
+
+end Expressions
+
+section Localization
+variable (R : Type u) [CommRing R] [Algebra R A] [Algebra R S] [IsScalarTower R A S]
+
+@[simp] theorem kaehlerExteriorMap_D_wedge (a b : A) :
+    kaehlerExteriorMap A S R (exteriorPower.ιMulti A 2
+      ![KaehlerDifferential.D R A a, KaehlerDifferential.D R A b]) =
+    exteriorPower.ιMulti S 2 ![KaehlerDifferential.D R S (algebraMap A S a),
+      KaehlerDifferential.D R S (algebraMap A S b)] := by
+  simp [kaehlerExteriorMap_wedge, KaehlerDifferential.map_D]
+
+theorem kaehlerExteriorMap_smul (a : A) (w : KaehlerTwoForms A R) :
+    kaehlerExteriorMap A S R (a • w) = algebraMap A S a • kaehlerExteriorMap A S R w := by
+  rw [map_smul, ← IsScalarTower.algebraMap_smul S a]
+
+theorem kaehlerExteriorMap_comp (T : Type u) [CommRing T] [Algebra A T] [Algebra S T]
+    [Algebra R T] [IsScalarTower R A T] [IsScalarTower R S T] [IsScalarTower A S T]
+    (w : KaehlerTwoForms A R) :
+    kaehlerExteriorMap S T R (kaehlerExteriorMap A S R w) = kaehlerExteriorMap A T R w := by
+  obtain ⟨I, hI, c, a, b, rfl⟩ := kaehlerTwo_expression A R w
+  simp only [map_sum, kaehlerExteriorMap_smul, kaehlerExteriorMap_D_wedge,
+    ← IsScalarTower.algebraMap_apply A S T]
+
+def primeExteriorEquiv (p : PrimeSpectrum A) :
+    LocalizedModule p.asIdeal.primeCompl (KaehlerTwoForms A R) ≃ₗ[A]
+      KaehlerTwoForms (PrimeLocalRing A p) R := by
+  letI := kaehlerExterior_isLocalizedModule A (PrimeLocalRing A p) R p.asIdeal.primeCompl
+  exact IsLocalizedModule.iso p.asIdeal.primeCompl (kaehlerExteriorMap A (PrimeLocalRing A p) R)
+
+@[simp] theorem primeExteriorEquiv_mk_one (p : PrimeSpectrum A) (w : KaehlerTwoForms A R) :
+    primeExteriorEquiv A R p (LocalizedModule.mk w 1) =
+      kaehlerExteriorMap A (PrimeLocalRing A p) R w := by
+  letI := kaehlerExterior_isLocalizedModule A (PrimeLocalRing A p) R p.asIdeal.primeCompl
+  unfold primeExteriorEquiv
+  exact IsLocalizedModule.iso_mk_one _ _ _
+
+theorem primeExteriorEquiv_mk_cancel (p : PrimeSpectrum A) (w : KaehlerTwoForms A R)
+    (s : p.asIdeal.primeCompl) :
+    algebraMap A (PrimeLocalRing A p) s.val •
+      primeExteriorEquiv A R p (LocalizedModule.mk w s) =
+        kaehlerExteriorMap A (PrimeLocalRing A p) R w := by
+  rw [IsScalarTower.algebraMap_smul]
+  rw [← (primeExteriorEquiv A R p).map_smul]
+  have h : (s : A) • LocalizedModule.mk w s = LocalizedModule.mk w 1 := by
+    rw [LocalizedModule.smul'_mk]
+    change LocalizedModule.mk (s • w) s = _
+    exact LocalizedModule.mk_cancel s w
+  rw [h, primeExteriorEquiv_mk_one]
+
+end Localization
+
+section Principal
+variable (R : Type u) [CommRing R] [Algebra R A]
+variable (f : A) (p : PrimeSpectrum A) (hf : p ∈ PrimeSpectrum.basicOpen f)
+
+local instance principalExteriorAlgebra [h : Fact (p ∈ PrimeSpectrum.basicOpen f)] :
+    Algebra (Localization.Away f) (PrimeLocalRing A p) :=
+  (principalToPrimeAlg A f p h.out).toAlgebra
+
+local instance principalExteriorTower [h : Fact (p ∈ PrimeSpectrum.basicOpen f)] :
+    IsScalarTower A (Localization.Away f) (PrimeLocalRing A p) :=
+  IsScalarTower.of_algHom (principalToPrimeAlg A f p h.out)
+
+local instance principalExteriorTowerR [h : Fact (p ∈ PrimeSpectrum.basicOpen f)] :
+    IsScalarTower R (Localization.Away f) (PrimeLocalRing A p) :=
+  IsScalarTower.of_algHom ((principalToPrimeAlg A f p h.out).restrictScalars R)
+
+def principalExteriorToPrime : KaehlerTwoForms (Localization.Away f) R →
+    KaehlerTwoForms (PrimeLocalRing A p) R := by
+  letI : Fact (p ∈ PrimeSpectrum.basicOpen f) := ⟨hf⟩
+  exact fun w => kaehlerExteriorMap (Localization.Away f) (PrimeLocalRing A p) R w
+
+@[simp] theorem principalExteriorToPrime_add (x y : KaehlerTwoForms (Localization.Away f) R) :
+    principalExteriorToPrime A R f p hf (x + y) =
+      principalExteriorToPrime A R f p hf x + principalExteriorToPrime A R f p hf y := by
+  letI : Fact (p ∈ PrimeSpectrum.basicOpen f) := ⟨hf⟩
+  exact map_add (kaehlerExteriorMap (Localization.Away f) (PrimeLocalRing A p) R) _ _
+
+theorem principalExteriorToPrime_sum {I : Type*} (t : Finset I)
+    (w : I → KaehlerTwoForms (Localization.Away f) R) :
+    principalExteriorToPrime A R f p hf (∑ i ∈ t, w i) =
+      ∑ i ∈ t, principalExteriorToPrime A R f p hf (w i) := by
+  letI : Fact (p ∈ PrimeSpectrum.basicOpen f) := ⟨hf⟩
+  exact map_sum (kaehlerExteriorMap (Localization.Away f) (PrimeLocalRing A p) R) _ _
+
+theorem principalExteriorToPrime_smul (c : Localization.Away f)
+    (w : KaehlerTwoForms (Localization.Away f) R) :
+    principalExteriorToPrime A R f p hf (c • w) =
+      principalToPrime A f p hf c • principalExteriorToPrime A R f p hf w := by
+  letI : Fact (p ∈ PrimeSpectrum.basicOpen f) := ⟨hf⟩
+  exact kaehlerExteriorMap_smul (Localization.Away f) (PrimeLocalRing A p) R c w
+
+@[simp] theorem principalExteriorToPrime_D_wedge (a b : Localization.Away f) :
+    principalExteriorToPrime A R f p hf (exteriorPower.ιMulti (Localization.Away f) 2
+      ![KaehlerDifferential.D R _ a, KaehlerDifferential.D R _ b]) =
+    exteriorPower.ιMulti (PrimeLocalRing A p) 2
+      ![KaehlerDifferential.D R _ (principalToPrime A f p hf a),
+        KaehlerDifferential.D R _ (principalToPrime A f p hf b)] := by
+  letI : Fact (p ∈ PrimeSpectrum.basicOpen f) := ⟨hf⟩
+  exact kaehlerExteriorMap_D_wedge (Localization.Away f) (PrimeLocalRing A p) R a b
+
+theorem principalExteriorToPrime_base (w : KaehlerTwoForms A R) :
+    principalExteriorToPrime A R f p hf (kaehlerExteriorMap A (Localization.Away f) R w) =
+      kaehlerExteriorMap A (PrimeLocalRing A p) R w := by
+  letI : Fact (p ∈ PrimeSpectrum.basicOpen f) := ⟨hf⟩
+  exact kaehlerExteriorMap_comp A (Localization.Away f) R (PrimeLocalRing A p) w
+
+theorem primeExteriorEquiv_mk_eq_principal (w : KaehlerTwoForms A R) (d : A)
+    (hd : d ∉ p.asIdeal) (v : KaehlerTwoForms (Localization.Away f) R)
+    (h : algebraMap A (Localization.Away f) d • v = kaehlerExteriorMap A (Localization.Away f) R w) :
+    primeExteriorEquiv A R p (LocalizedModule.mk w ⟨d, hd⟩) =
+      principalExteriorToPrime A R f p hf v := by
+  apply (IsLocalization.map_units (PrimeLocalRing A p)
+    (⟨d, hd⟩ : p.asIdeal.primeCompl)).smul_left_cancel.mp
+  rw [primeExteriorEquiv_mk_cancel]
+  have hh := congrArg (principalExteriorToPrime A R f p hf) h
+  simpa only [principalExteriorToPrime_smul, principalToPrime_algebraMap,
+    principalExteriorToPrime_base] using hh.symm
+
+end Principal
+
+section SheafComparison
+variable (R : Type u) [CommRing R] [Algebra R A]
+
+def kaehlerTwoFormSheaf : TopCat.Sheaf (Type u) (PrimeSpectrum.Top A) :=
+  structureSheafInType (CommRingCat.of A) (KaehlerTwoForms A R)
+
+theorem kaehlerTwoFormSheaf_from_tilde :
+    (tilde (R := CommRingCat.of A) (ModuleCat.of A (KaehlerTwoForms A R))).val.presheaf ⋙ forget AddCommGrpCat =
+      (kaehlerTwoFormSheaf A R).obj := rfl
+
+def exteriorGermEvaluation (p : PrimeSpectrum A)
+    (w : LocalizedModule p.asIdeal.primeCompl (KaehlerTwoForms A R)) : TwoFormGerm R A p :=
+  kaehlerTwoEvaluation (PrimeLocalRing A p) R (primeExteriorEquiv A R p w)
+
+theorem principalExterior_evaluation (f : A) (p : PrimeSpectrum A)
+    (hf : p ∈ PrimeSpectrum.basicOpen f) {I : Type u} [Fintype I]
+    (c a b : I → Localization.Away f) :
+    kaehlerTwoEvaluation (PrimeLocalRing A p) R (principalExteriorToPrime A R f p hf
+      (∑ i, c i • exteriorPower.ιMulti (Localization.Away f) 2
+        ![KaehlerDifferential.D R _ (a i), KaehlerDifferential.D R _ (b i)])) =
+    ∑ i, principalToPrime A f p hf (c i) •
+      coordinateForm (R := R) (principalToPrime A f p hf (a i))
+        (principalToPrime A f p hf (b i)) := by
+  simp only [principalExteriorToPrime_sum, principalExteriorToPrime_smul,
+    principalExteriorToPrime_D_wedge, map_sum, map_smul, kaehlerTwoEvaluation_D_wedge]
+
+theorem exteriorFraction_regular {U : Opens (PrimeSpectrum.Top A)}
+    (s : ∀ p : U, LocalizedModule p.val.asIdeal.primeCompl (KaehlerTwoForms A R))
+    (hs : StructureSheaf.IsFraction s) :
+    (regularTwoFormPrelocal R A).pred (fun p => exteriorGermEvaluation A R p.val (s p)) := by
+  classical
+  obtain ⟨w, d, hs⟩ := hs
+  obtain ⟨v, hv⟩ := (IsUnit.smul_bijective
+    (β := KaehlerTwoForms (Localization.Away d) R)
+    (IsLocalization.Away.algebraMap_isUnit (S := Localization.Away d) d)).2
+      (kaehlerExteriorMap A (Localization.Away d) R w)
+  obtain ⟨I, hI, c, a, b, hv'⟩ := kaehlerTwo_expression (Localization.Away d) R v
+  have hU : U ≤ PrimeSpectrum.basicOpen d := fun p hp => (hs ⟨p, hp⟩).choose
+  refine ⟨d, hU, I, hI, c, a, b, ?_⟩
+  intro p
+  obtain ⟨hd, hp⟩ := hs p
+  dsimp only
+  rw [hp]
+  unfold exteriorGermEvaluation
+  rw [primeExteriorEquiv_mk_eq_principal A R d p.val (hU p.property) w d hd v hv, hv']
+  exact principalExterior_evaluation A R d p.val (hU p.property) c a b
+
+def exteriorSheafEvaluation : kaehlerTwoFormSheaf A R ⟶ regularTwoFormSheaf R A where
+  hom :=
+    { app := fun U => TypeCat.ofHom fun s => ⟨fun p => exteriorGermEvaluation A R p.val (s.val p), by
+        intro p
+        obtain ⟨V, hp, i, hs⟩ := s.property p
+        exact ⟨V, hp, i, exteriorFraction_regular A R _ hs⟩⟩
+      naturality := by intros; rfl }
+
+theorem regularExpression_fraction {U : Opens (PrimeSpectrum.Top A)}
+    (s : ∀ p : U, TwoFormGerm R A p.val) (hs : (regularTwoFormPrelocal R A).pred s) :
+    ∃ (w : KaehlerTwoForms A R) (d : A) (hd : ∀ p : U, d ∉ p.val.asIdeal),
+      ∀ p : U, exteriorGermEvaluation A R p.val (LocalizedModule.mk w ⟨d, hd p⟩) = s p := by
+  classical
+  obtain ⟨f, hU, I, hI, c, a, b, hs⟩ := hs
+  let v : KaehlerTwoForms (Localization.Away f) R := ∑ i, c i •
+    exteriorPower.ιMulti (Localization.Away f) 2
+      ![KaehlerDifferential.D R _ (a i), KaehlerDifferential.D R _ (b i)]
+  letI := kaehlerExterior_isLocalizedModule A (Localization.Away f) R (Submonoid.powers f)
+  obtain ⟨⟨w, d⟩, hd⟩ := IsLocalizedModule.surj (Submonoid.powers f)
+    (kaehlerExteriorMap A (Localization.Away f) R) v
+  have hdp : ∀ p : U, d.val ∉ p.val.asIdeal := by
+    intro p
+    obtain ⟨m, hm⟩ := d.property
+    rw [← hm]
+    exact p.val.asIdeal.primeCompl.pow_mem (hU p.property) m
+  refine ⟨w, d.val, hdp, ?_⟩
+  intro p
+  unfold exteriorGermEvaluation
+  rw [primeExteriorEquiv_mk_eq_principal A R f p.val (hU p.property) w d.val (hdp p) v
+    (by simpa only [Submonoid.smul_def, IsScalarTower.algebraMap_smul] using hd)]
+  exact (principalExterior_evaluation A R f p.val (hU p.property) c a b).trans (hs p).symm
+
+theorem exteriorSheafEvaluation_point_preimage {U : Opens (PrimeSpectrum.Top A)}
+    (s : (regularTwoFormSheaf R A).obj.obj (op U)) (p : U) :
+    ∃ w, exteriorGermEvaluation A R p.val w = s.val p := by
+  obtain ⟨V, hp, i, hs⟩ := s.property p
+  obtain ⟨w, d, hd, h⟩ := regularExpression_fraction A R _ hs
+  exact ⟨LocalizedModule.mk w ⟨d, hd ⟨p.val, hp⟩⟩, h ⟨p.val, hp⟩⟩
+
+theorem exteriorSheafEvaluation_bijective (U : Opens (PrimeSpectrum.Top A))
+    (hU : ∀ p : U, Function.Injective (kaehlerTwoEvaluation (PrimeLocalRing A p.val) R)) :
+    Function.Bijective ((exteriorSheafEvaluation A R).hom.app (op U)) := by
+  have hinj (p : U) : Function.Injective (exteriorGermEvaluation A R p.val) :=
+    (hU p).comp (primeExteriorEquiv A R p.val).injective
+  refine ⟨?_, ?_⟩
+  · intro s t h
+    apply Subtype.ext
+    funext p
+    exact hinj p (congrArg (fun s => s.val p) h)
+  · intro s
+    let t := fun p : U => (exteriorSheafEvaluation_point_preimage A R s p).choose
+    have ht (p : U) : exteriorGermEvaluation A R p.val (t p) = s.val p :=
+      (exteriorSheafEvaluation_point_preimage A R s p).choose_spec
+    refine ⟨⟨t, ?_⟩, ?_⟩
+    · intro p
+      obtain ⟨V, hp, i, hs⟩ := s.property p
+      obtain ⟨w, d, hd, h⟩ := regularExpression_fraction A R _ hs
+      refine ⟨V, hp, i, w, d, ?_⟩
+      intro q
+      refine ⟨hd q, ?_⟩
+      exact hinj (i q) ((ht (i q)).trans (h q).symm)
+    · apply Subtype.ext
+      exact funext ht
+
+def exteriorSheafComparison (U : Opens (PrimeSpectrum.Top A))
+    (hU : ∀ p : U, Function.Injective (kaehlerTwoEvaluation (PrimeLocalRing A p.val) R)) :
+    (U.isOpenEmbedding.sheafPullback (Type u)).obj (kaehlerTwoFormSheaf A R) ≅
+      (U.isOpenEmbedding.sheafPullback (Type u)).obj (regularTwoFormSheaf R A) := by
+  let f := (U.isOpenEmbedding.sheafPullback (Type u)).map (exteriorSheafEvaluation A R)
+  haveI (V : (Opens U)ᵒᵖ) : IsIso (f.hom.app V) := by
+    apply (CategoryTheory.isIso_iff_bijective _).mpr
+    apply exteriorSheafEvaluation_bijective A R
+    intro p
+    obtain ⟨q, hq, hp⟩ := p.property
+    exact hU ⟨p.val, hp ▸ q.property⟩
+  letI := NatIso.isIso_of_isIso_app f.hom
+  exact ObjectProperty.isoMk _ (asIso f.hom)
+
+end SheafComparison
+
+section CanonicalTrace
+variable (R : Type u) [CommRing R] [Algebra R A]
+variable {n : Type u} [Fintype n]
+
+def kaehlerCanonicalTrace (T B : Matrix n n A) : KaehlerTwoForms A R :=
+  ∑ i, ∑ j, exteriorPower.ιMulti A 2 ![KaehlerDifferential.D R A (T i j),
+    KaehlerDifferential.D R A (B j i)]
+
+theorem kaehlerCanonicalTrace_evaluation (T B : Matrix n n A) :
+    kaehlerTwoEvaluation A R (kaehlerCanonicalTrace A R T B) = canonicalTrace (R := R) T B := by
+  simp only [kaehlerCanonicalTrace, map_sum, kaehlerTwoEvaluation_D_wedge, canonicalTrace]
+
+theorem kaehlerCanonicalTrace_map [Algebra R S] [IsScalarTower R A S]
+    (T B : Matrix n n A) :
+    kaehlerExteriorMap A S R (kaehlerCanonicalTrace A R T B) =
+      kaehlerCanonicalTrace S R (T.map (algebraMap A S)) (B.map (algebraMap A S)) := by
+  simp only [kaehlerCanonicalTrace, map_sum, kaehlerExteriorMap_D_wedge, Matrix.map_apply]
+
+theorem kaehlerCanonicalTrace_one [DecidableEq n] (B : Matrix n n A) :
+    kaehlerCanonicalTrace A R (1 : Matrix n n A) B = 0 := by
+  classical
+  have h (x : KaehlerDifferential R A) : exteriorPower.ιMulti A 2 ![0, x] = 0 :=
+    (exteriorPower.ιMulti A 2).map_coord_zero 0 rfl
+  simp [kaehlerCanonicalTrace, Matrix.one_apply, apply_ite, h]
+
+end CanonicalTrace
+
+section Contraction
+variable (R : Type u) [CommRing R] [Algebra R A]
+variable [Module.IsReflexive A (KaehlerDifferential R A)]
+
+def kaehlerOneEvaluationEquiv : KaehlerDifferential R A ≃ₗ[A]
+    Module.Dual A (Derivation R A A) :=
+  (Module.evalEquiv A (KaehlerDifferential R A)).trans
+    (KaehlerDifferential.linearMapEquivDerivation R A).symm.dualMap
+
+@[simp] theorem kaehlerOneEvaluationEquiv_apply (x : KaehlerDifferential R A)
+    (D : Derivation R A A) : kaehlerOneEvaluationEquiv A R x D = D.liftKaehlerDifferential x := rfl
+
+def kaehlerContraction (w : KaehlerTwoForms A R) : Derivation R A A →ₗ[A] KaehlerDifferential R A :=
+  (kaehlerOneEvaluationEquiv A R).symm.toLinearMap.comp (kaehlerTwoEvaluation A R w)
+
+theorem kaehlerContraction_pairing (w : KaehlerTwoForms A R) (D E : Derivation R A A) :
+    E.liftKaehlerDifferential (kaehlerContraction A R w D) = kaehlerTwoEvaluation A R w D E := by
+  exact LinearMap.congr_fun ((kaehlerOneEvaluationEquiv A R).apply_symm_apply
+    (kaehlerTwoEvaluation A R w D)) E
+
+theorem kaehlerContraction_wedge (x y : KaehlerDifferential R A) (D : Derivation R A A) :
+    kaehlerContraction A R (exteriorPower.ιMulti A 2 ![x, y]) D =
+      D.liftKaehlerDifferential x • y - D.liftKaehlerDifferential y • x := by
+  apply (kaehlerOneEvaluationEquiv A R).injective
+  ext E
+  rw [kaehlerOneEvaluationEquiv_apply, kaehlerContraction_pairing, kaehlerTwoEvaluation_wedge,
+    kaehlerOneEvaluationEquiv_apply]
+  simp [mul_comm]
+
+theorem kaehlerContraction_bijective (w : KaehlerTwoForms A R)
+    (h : Function.Bijective (kaehlerTwoEvaluation A R w)) :
+    Function.Bijective (kaehlerContraction A R w) :=
+  (kaehlerOneEvaluationEquiv A R).symm.bijective.comp h
+
+end Contraction
+
+end
+end Universality.ExteriorGeometry
+
+namespace Universality.GlobalSymplectic
+noncomputable section
+open AffineForms SquareZeroGeometry ExteriorGeometry
+universe u
+variable (R n : Type u) [CommRing R] [Fintype n] [DecidableEq n]
+
+def primeChartDifferentialBasis (p : PrimeSpectrum (CoordinateRing R n))
+    (e : Equiv.Perm (n ⊕ n)) (he : p ∈ permutationOpen R n e) :
+    Module.Basis ((n × n) ⊕ (n × n)) (PrimeLocalRing (CoordinateRing R n) p)
+      (KaehlerDifferential R (PrimeLocalRing (CoordinateRing R n) p)) := by
+  letI := (primeChartPolynomialEvaluation R n p e he).toAlgebra
+  letI := IsScalarTower.of_algHom (primeChartPolynomialEvaluation R n p e he)
+  letI := primeChartPolynomial_isLocalization R n p e he
+  exact localizedDifferentialBasis (R := R) (S := PrimeLocalRing (CoordinateRing R n) p)
+    (IsLocalization.localizationLocalizationSubmodule (Submonoid.powers (chartDet R n))
+      (p.asIdeal.primeCompl.map (permutationChartEmbedding R n e).toRingHom))
+
+theorem primeTwoEvaluation_injective (p : maximalRankOpen R n) :
+    Function.Injective (kaehlerTwoEvaluation (PrimeLocalRing (CoordinateRing R n) p.val) R) := by
+  obtain ⟨e, he⟩ := exists_prime_chart R n p
+  exact kaehlerTwoEvaluation_injective _ R
+    ((primeChartDifferentialBasis R n p.val e he).reindex (Fintype.equivFin _))
+
+def orbitExteriorSheafComparison :
+    ((maximalRankOpen R n).isOpenEmbedding.sheafPullback (Type u)).obj
+        (kaehlerTwoFormSheaf (CoordinateRing R n) R) ≅
+      ((maximalRankOpen R n).isOpenEmbedding.sheafPullback (Type u)).obj
+        (regularTwoFormSheaf R (CoordinateRing R n)) :=
+  exteriorSheafComparison (CoordinateRing R n) R (maximalRankOpen R n)
+    (primeTwoEvaluation_injective R n)
+
+def orbitKaehlerTwoForm :
+    (kaehlerTwoFormSheaf (CoordinateRing R n) R).obj.obj
+      (Opposite.op (maximalRankOpen R n)) :=
+  (Equiv.ofBijective ((exteriorSheafEvaluation (CoordinateRing R n) R).hom.app
+      (Opposite.op (maximalRankOpen R n)))
+    (exteriorSheafEvaluation_bijective (CoordinateRing R n) R (maximalRankOpen R n)
+      (primeTwoEvaluation_injective R n))).symm (orbitGlobalTwoForm R n)
+
+theorem orbitKaehlerTwoForm_evaluation :
+    (exteriorSheafEvaluation (CoordinateRing R n) R).hom.app
+      (Opposite.op (maximalRankOpen R n)) (orbitKaehlerTwoForm R n) = orbitGlobalTwoForm R n :=
+  (Equiv.ofBijective _ (exteriorSheafEvaluation_bijective (CoordinateRing R n) R
+    (maximalRankOpen R n) (primeTwoEvaluation_injective R n))).apply_symm_apply _
+
+theorem orbitKaehlerTwoForm_evaluation_point (p : maximalRankOpen R n) :
+    exteriorGermEvaluation (CoordinateRing R n) R p.val ((orbitKaehlerTwoForm R n).val p) =
+      (orbitGlobalTwoForm R n).val p :=
+  congrArg (fun s => s.val p) (orbitKaehlerTwoForm_evaluation R n)
+
+theorem orbitKaehlerTwoForm_chart (p : maximalRankOpen R n)
+    (e : Equiv.Perm (n ⊕ n)) (he : p.val ∈ permutationOpen R n e) :
+    primeExteriorEquiv (CoordinateRing R n) R p.val ((orbitKaehlerTwoForm R n).val p) =
+      kaehlerCanonicalTrace (PrimeLocalRing (CoordinateRing R n) p.val) R
+        ((chartT R n).map (primeChartEvaluation R n p.val e he))
+        ((chartA R n).map (primeChartEvaluation R n p.val e he)) := by
+  apply primeTwoEvaluation_injective R n p
+  rw [kaehlerCanonicalTrace_evaluation]
+  exact (orbitKaehlerTwoForm_evaluation_point R n p).trans (orbitGlobalTwoForm_atlas R n p e he)
+
+theorem orbitKaehlerTwoForm_closed (p : maximalRankOpen R n) :
+    IsClosed (exteriorGermEvaluation (CoordinateRing R n) R p.val ((orbitKaehlerTwoForm R n).val p)) := by
+  rw [orbitKaehlerTwoForm_evaluation_point]
+  exact orbitGlobalTwoForm_closed R n p
+
+theorem orbitKaehlerTwoForm_perfect (p : maximalRankOpen R n) :
+    Function.Bijective
+      (exteriorGermEvaluation (CoordinateRing R n) R p.val ((orbitKaehlerTwoForm R n).val p)) := by
+  rw [orbitKaehlerTwoForm_evaluation_point]
+  exact orbitGlobalTwoForm_perfect R n p
+
+theorem cell_kaehler_form_pullback_zero :
+    letI := cellChartAlgebra R n
+    letI := IsScalarTower.of_algHom (cellChartEval R n)
+    kaehlerExteriorMap (ChartRing R n) (CellRing R n) R
+      (kaehlerCanonicalTrace (ChartRing R n) R (chartT R n) (chartA R n)) = 0 := by
+  letI := cellChartAlgebra R n
+  letI := IsScalarTower.of_algHom (cellChartEval R n)
+  rw [kaehlerCanonicalTrace_map]
+  change kaehlerCanonicalTrace (CellRing R n) R
+    ((chartT R n).map (cellChartEval R n)) ((chartA R n).map (cellChartEval R n)) = 0
+  rw [cellChartEval_T]
+  exact kaehlerCanonicalTrace_one _ _ _
+
+def orbitKaehlerContraction (p : maximalRankOpen R n) :
+    Derivation R (PrimeLocalRing (CoordinateRing R n) p.val) (PrimeLocalRing (CoordinateRing R n) p.val)
+      →ₗ[PrimeLocalRing (CoordinateRing R n) p.val]
+        KaehlerDifferential R (PrimeLocalRing (CoordinateRing R n) p.val) := by
+  let e := (exists_prime_chart R n p).choose
+  let b := primeChartDifferentialBasis R n p.val e (exists_prime_chart R n p).choose_spec
+  letI := Module.Free.of_basis b
+  letI := Module.Finite.of_basis b
+  exact kaehlerContraction _ R
+    (primeExteriorEquiv (CoordinateRing R n) R p.val ((orbitKaehlerTwoForm R n).val p))
+
+theorem orbitKaehlerContraction_pairing (p : maximalRankOpen R n)
+    (D E : Derivation R (PrimeLocalRing (CoordinateRing R n) p.val)
+      (PrimeLocalRing (CoordinateRing R n) p.val)) :
+    E.liftKaehlerDifferential (orbitKaehlerContraction R n p D) =
+      exteriorGermEvaluation (CoordinateRing R n) R p.val ((orbitKaehlerTwoForm R n).val p) D E := by
+  let e := (exists_prime_chart R n p).choose
+  let b := primeChartDifferentialBasis R n p.val e (exists_prime_chart R n p).choose_spec
+  letI := Module.Free.of_basis b
+  letI := Module.Finite.of_basis b
+  exact kaehlerContraction_pairing _ R _ D E
+
+theorem orbitKaehlerContraction_bijective (p : maximalRankOpen R n) :
+    Function.Bijective (orbitKaehlerContraction R n p) := by
+  let e := (exists_prime_chart R n p).choose
+  let b := primeChartDifferentialBasis R n p.val e (exists_prime_chart R n p).choose_spec
+  letI := Module.Free.of_basis b
+  letI := Module.Finite.of_basis b
+  exact kaehlerContraction_bijective _ R _ (orbitKaehlerTwoForm_perfect R n p)
+
+end
+end Universality.GlobalSymplectic
+
+namespace Universality.GlobalSymplectic
+noncomputable section
+set_option backward.isDefEq.respectTransparency false
+open AffineForms AffineGeometry SquareZeroGeometry AlgebraicGeometry CategoryTheory Limits
+universe u
+variable (R n : Type u) [CommRing R] [Fintype n] [DecidableEq n]
+
+section Commutator
+variable (S : Type u) [CommRing S] [Algebra R S]
+
+def squareZeroEvaluation (Z : Matrix (n ⊕ n) (n ⊕ n) S) (hZ : Z * Z = 0) :
+    CoordinateRing R n →ₐ[R] S :=
+  Ideal.Quotient.liftₐ _ (MvPolynomial.aeval (fun ij => Z ij.1 ij.2)) (by
+    change squareZeroIdeal R n ≤ RingHom.ker
+      (MvPolynomial.aeval (fun ij => Z ij.1 ij.2) : AmbientRing R n →ₐ[R] S).toRingHom
+    apply Ideal.span_le.mpr
+    rintro _ ⟨⟨i, j⟩, rfl⟩
+    change (MvPolynomial.aeval (fun ij => Z ij.1 ij.2) : AmbientRing R n →ₐ[R] S)
+      ((genericMatrix R n * genericMatrix R n) i j) = 0
+    simpa [Matrix.mul_apply, genericMatrix] using congrFun (congrFun hZ i) j)
+
+omit [DecidableEq n] in
+@[simp] theorem squareZeroEvaluation_matrix
+    (Z : Matrix (n ⊕ n) (n ⊕ n) S) (hZ : Z * Z = 0) (i j) :
+    squareZeroEvaluation R n S Z hZ (universalMatrix R n i j) = Z i j := by
+  simp [squareZeroEvaluation, universalMatrix, genericMatrix]
+
+omit [DecidableEq n] in
+theorem coordinateAlgHom_ext {f g : CoordinateRing R n →ₐ[R] S}
+    (h : ∀ i j, f (universalMatrix R n i j) = g (universalMatrix R n i j)) : f = g := by
+  apply Ideal.Quotient.algHom_ext
+  apply MvPolynomial.algHom_ext
+  rintro ⟨i, j⟩
+  exact h i j
+
+variable [Algebra (CoordinateRing R n) S] [IsScalarTower R (CoordinateRing R n) S]
+
+omit [DecidableEq n] [Algebra R S] [IsScalarTower R (CoordinateRing R n) S] in
+theorem coefficientMatrix_square : coefficientMatrix R n S * coefficientMatrix R n S = 0 := by
+  rw [coefficientMatrix, ← Matrix.map_mul, universalMatrix_square]
+  ext i j
+  exact (algebraMap (CoordinateRing R n) S).map_zero
+
+/-- The first-order conjugation of the universal square-zero matrix. -/
+def commutatorFirstOrder (X : Matrix (n ⊕ n) (n ⊕ n) S) :
+    Matrix (n ⊕ n) (n ⊕ n) (DualNumber S) :=
+  fun i j => ⟨coefficientMatrix R n S i j, Symplectic.comm X (coefficientMatrix R n S) i j⟩
+
+omit [DecidableEq n] [Algebra R S] [IsScalarTower R (CoordinateRing R n) S] in
+theorem commutatorFirstOrder_square (X : Matrix (n ⊕ n) (n ⊕ n) S) :
+    commutatorFirstOrder R n S X * commutatorFirstOrder R n S X = 0 := by
+  have h : coefficientMatrix R n S * Symplectic.comm X (coefficientMatrix R n S) +
+      Symplectic.comm X (coefficientMatrix R n S) * coefficientMatrix R n S = 0 := by
+    dsimp [Symplectic.comm]
+    calc
+      _ = X * (coefficientMatrix R n S * coefficientMatrix R n S) -
+          (coefficientMatrix R n S * coefficientMatrix R n S) * X := by noncomm_ring
+      _ = 0 := by rw [coefficientMatrix_square]; simp
+  ext i j
+  · simpa only [Matrix.mul_apply, commutatorFirstOrder, TrivSqZeroExt.fst_sum,
+      TrivSqZeroExt.fst_mul, TrivSqZeroExt.fst_mk, TrivSqZeroExt.fst_zero, Matrix.zero_apply] using
+      congrFun (congrFun (coefficientMatrix_square R n S) i) j
+  · simpa only [Matrix.mul_apply, commutatorFirstOrder, TrivSqZeroExt.snd_sum,
+      DualNumber.snd_mul, TrivSqZeroExt.fst_mk, TrivSqZeroExt.snd_mk,
+      TrivSqZeroExt.snd_zero, Matrix.zero_apply, Matrix.add_apply, Finset.sum_add_distrib] using
+      congrFun (congrFun h i) j
+
+def commutatorFirstOrderMap (X : Matrix (n ⊕ n) (n ⊕ n) S) :
+    CoordinateRing R n →ₐ[R] DualNumber S :=
+  squareZeroEvaluation R n (DualNumber S) (commutatorFirstOrder R n S X)
+    (commutatorFirstOrder_square R n S X)
+
+omit [DecidableEq n] in
+theorem commutatorFirstOrderMap_fst (X : Matrix (n ⊕ n) (n ⊕ n) S) (a : CoordinateRing R n) :
+    (commutatorFirstOrderMap R n S X a).fst = algebraMap (CoordinateRing R n) S a := by
+  have h : (TrivSqZeroExt.fstHom R S S).comp (commutatorFirstOrderMap R n S X) =
+      IsScalarTower.toAlgHom R (CoordinateRing R n) S := by
+    apply coordinateAlgHom_ext
+    intro i j
+    exact congrArg TrivSqZeroExt.fst
+      (squareZeroEvaluation_matrix R n (DualNumber S) _ (commutatorFirstOrder_square R n S X) i j)
+  exact DFunLike.congr_fun h a
+
+/-- The infinitesimal conjugation action on the actual square-zero coordinate algebra. -/
+def commutatorDerivation (X : Matrix (n ⊕ n) (n ⊕ n) S) :
+    Derivation R (CoordinateRing R n) S where
+  toFun a := (commutatorFirstOrderMap R n S X a).snd
+  map_add' a b := by simp
+  map_smul' r a := by simp
+  map_one_eq_zero' := by simp
+  leibniz' a b := by
+    simp [commutatorFirstOrderMap_fst, Algebra.smul_def, mul_comm]
+
+@[simp] theorem commutatorDerivation_matrix (X : Matrix (n ⊕ n) (n ⊕ n) S) (i j) :
+    commutatorDerivation R n S X (universalMatrix R n i j) =
+      Symplectic.comm X (coefficientMatrix R n S) i j :=
+  congrArg TrivSqZeroExt.snd (squareZeroEvaluation_matrix R n (DualNumber S) _ _ i j)
+
+omit [DecidableEq n] [IsScalarTower R (CoordinateRing R n) S] in
+theorem coordinateDerivation_ext {D E : Derivation R (CoordinateRing R n) S}
+    (h : ∀ i j, D (universalMatrix R n i j) = E (universalMatrix R n i j)) : D = E := by
+  apply Derivation.ext
+  intro a
+  obtain ⟨p, rfl⟩ := Ideal.Quotient.mk_surjective a
+  induction p using MvPolynomial.induction_on with
+  | C r =>
+      change D (algebraMap R (CoordinateRing R n) r) = E (algebraMap R (CoordinateRing R n) r)
+      simp
+  | add p q hp hq => simp only [map_add, hp, hq]
+  | mul_X p ij hp =>
+      simp only [map_mul, Derivation.leibniz, hp]
+      exact congrArg (fun x => Ideal.Quotient.mk (squareZeroIdeal R n) p • x +
+        Ideal.Quotient.mk (squareZeroIdeal R n) (MvPolynomial.X ij) •
+          E (Ideal.Quotient.mk (squareZeroIdeal R n) p)) (h ij.1 ij.2)
+
+def commutatorLinearMap : Matrix (n ⊕ n) (n ⊕ n) S →ₗ[S]
+    Derivation R (CoordinateRing R n) S where
+  toFun := commutatorDerivation R n S
+  map_add' X Y := by
+    apply coordinateDerivation_ext
+    intro i j
+    simp [Symplectic.comm, add_mul, mul_add]
+    abel
+  map_smul' a X := by
+    apply coordinateDerivation_ext
+    intro i j
+    simp [Symplectic.comm, mul_sub]
+
+end Commutator
+
+omit [DecidableEq n] in
+theorem coordinateTangentRingHom_ext {S : Type u} [CommRing S]
+    (f g : TangentRing R (CoordinateRing R n) →+* S)
+    (hb : ∀ a, f (algebraMap (CoordinateRing R n) _ a) = g (algebraMap (CoordinateRing R n) _ a))
+    (hd : ∀ i j, f (SymmetricAlgebra.ι _ _ (KaehlerDifferential.D R _ (universalMatrix R n i j))) =
+      g (SymmetricAlgebra.ι _ _ (KaehlerDifferential.D R _ (universalMatrix R n i j)))) : f = g := by
+  letI : Algebra (CoordinateRing R n) S := (f.comp (algebraMap (CoordinateRing R n) _)).toAlgebra
+  letI : Algebra R S := ((algebraMap (CoordinateRing R n) S).comp (algebraMap R _)).toAlgebra
+  letI : IsScalarTower R (CoordinateRing R n) S :=
+    IsScalarTower.of_algebraMap_eq' (R := R) (S := CoordinateRing R n) (A := S) rfl
+  let F : TangentRing R (CoordinateRing R n) →ₐ[CoordinateRing R n] S :=
+    { __ := f, commutes' := fun _ => rfl }
+  let G : TangentRing R (CoordinateRing R n) →ₐ[CoordinateRing R n] S :=
+    { __ := g, commutes' := fun a => (hb a).symm }
+  have h : tangentAlgebraHomEquiv R (CoordinateRing R n) S F =
+      tangentAlgebraHomEquiv R (CoordinateRing R n) S G := by
+    apply coordinateDerivation_ext
+    intro i j
+    have hF := tangentAlgebraHomEquiv_symm_apply R (CoordinateRing R n) S
+      (tangentAlgebraHomEquiv R (CoordinateRing R n) S F) (universalMatrix R n i j)
+    have hG := tangentAlgebraHomEquiv_symm_apply R (CoordinateRing R n) S
+      (tangentAlgebraHomEquiv R (CoordinateRing R n) S G) (universalMatrix R n i j)
+    rw [Equiv.symm_apply_apply] at hF hG
+    exact hF.symm.trans ((hd i j).trans hG)
+  exact congrArg AlgHom.toRingHom ((tangentAlgebraHomEquiv R (CoordinateRing R n) S).injective h)
+
+section ChartSection
+variable (e : Equiv.Perm (n ⊕ n))
+variable (S : Type u) [CommRing S] [Algebra (ChartRing R n) S] [Algebra R S]
+  [IsScalarTower R (ChartRing R n) S]
+
+def chartCommutatorGenerator (D : Derivation R (ChartRing R n) S) :
+    Matrix (n ⊕ n) (n ⊕ n) S :=
+  (chartGenerator ((chartA R n).map (algebraMap (ChartRing R n) S))
+    (Units.map (algebraMap (ChartRing R n) S).mapMatrix.toMonoidHom (chartUnitT R n))
+    (fun i j => D (chartA R n i j)) (fun i j => D (chartT R n i j))).submatrix e.symm e.symm
+
+omit [IsScalarTower R (ChartRing R n) S] in
+theorem chartCommutatorGenerator_comm (D : Derivation R (ChartRing R n) S) :
+    Symplectic.comm (chartCommutatorGenerator R n e S D)
+      (((universalMatrix R n).map (permutationChartEmbedding R n e)).map
+        (algebraMap (ChartRing R n) S)) =
+      fun i j => D (permutationChartEmbedding R n e (universalMatrix R n i j)) := by
+  rw [permutationChartEmbedding_matrix]
+  have hm : ((generalChart (chartA R n) (chartT R n)).submatrix e.symm e.symm).map
+      (algebraMap (ChartRing R n) S) =
+      (generalChart ((chartA R n).map (algebraMap (ChartRing R n) S))
+        ((chartT R n).map (algebraMap (ChartRing R n) S))).submatrix e.symm e.symm := by
+    change ((generalChart (chartA R n) (chartT R n)).map
+      (algebraMap (ChartRing R n) S)).submatrix e.symm e.symm = _
+    congr 1
+    ext (i | i) (j | j) <;> simp [generalChart, Matrix.mul_apply, map_sum, map_mul]
+  rw [hm]
+  change Symplectic.comm ((chartGenerator _ _ _ _).submatrix e.symm e.symm) _ = _
+  rw [Symplectic.comm, Matrix.submatrix_mul_equiv, Matrix.submatrix_mul_equiv]
+  change (Symplectic.comm (chartGenerator _ _ _ _) (generalChart _ _)).submatrix e.symm e.symm = _
+  have hc := chartGenerator_comm ((chartA R n).map (algebraMap (ChartRing R n) S))
+    (Units.map (algebraMap (ChartRing R n) S).mapMatrix.toMonoidHom (chartUnitT R n))
+    (fun i j => D (chartA R n i j)) (fun i j => D (chartT R n i j))
+  change Symplectic.comm (chartGenerator _ _ _ _)
+    (generalChart _ ((chartT R n).map (algebraMap (ChartRing R n) S))) = _ at hc
+  rw [hc]
+  let dA : Matrix n n S := fun i j => D (chartA R n i j)
+  let dT : Matrix n n S := fun i j => D (chartT R n i j)
+  let A := (chartA R n).map (algebraMap (ChartRing R n) S)
+  let T := (chartT R n).map (algebraMap (ChartRing R n) S)
+  let dM : Matrix n n (ChartRing R n) → Matrix n n S := fun M i j => D (M i j)
+  have dmul (M N : Matrix n n (ChartRing R n)) :
+      dM (M * N) = dM M * N.map (algebraMap (ChartRing R n) S) +
+        M.map (algebraMap (ChartRing R n) S) * dM N := by
+    ext i j
+    simp only [dM, Matrix.mul_apply, Matrix.add_apply, Matrix.map_apply, map_sum,
+      Derivation.leibniz, Algebra.smul_def, Finset.sum_add_distrib]
+    rw [add_comm]
+    congr 1
+    apply Finset.sum_congr rfl
+    intro x _
+    exact mul_comm _ _
+  have hd : (fun i j => D (generalChart (chartA R n) (chartT R n) i j)) =
+      Matrix.fromBlocks (dT * A + T * dA) dT
+        (-(dA * T * A + A * dT * A + A * T * dA)) (-(dA * T + A * dT)) := by
+    have hblock : (fun i j => D (generalChart (chartA R n) (chartT R n) i j)) =
+        Matrix.fromBlocks (dM (chartT R n * chartA R n)) dT
+          (-dM (chartA R n * chartT R n * chartA R n)) (-dM (chartA R n * chartT R n)) := by
+      ext (i | i) (j | j) <;> simp [generalChart, dM, dT]
+    rw [hblock]
+    simp only [dmul, Matrix.map_mul, add_mul]
+    rfl
+  change (Matrix.fromBlocks (dT * A + T * dA) dT
+    (-(dA * T * A + A * dT * A + A * T * dA)) (-(dA * T + A * dT))).submatrix e.symm e.symm = _
+  rw [← hd]
+  have h := congrArg (fun M => fun i j => D (M i j)) (permutationChartEmbedding_matrix R n e)
+  exact h.symm
+
+end ChartSection
+
+abbrev CommutatorRing : Type u := MvPolynomial ((n ⊕ n) × (n ⊕ n)) (CoordinateRing R n)
+
+def commutatorCoordinateMap : TangentRing R (CoordinateRing R n) →ₐ[CoordinateRing R n]
+    CommutatorRing R n :=
+  (tangentAlgebraHomEquiv R (CoordinateRing R n) (CommutatorRing R n)).symm
+    (commutatorDerivation R n (CommutatorRing R n) (fun i j => MvPolynomial.X (i, j)))
+
+@[simp] theorem commutatorCoordinateMap_D (i j) :
+    commutatorCoordinateMap R n
+      (SymmetricAlgebra.ι (CoordinateRing R n) _
+        (KaehlerDifferential.D R (CoordinateRing R n) (universalMatrix R n i j))) =
+      Symplectic.comm (fun i j => MvPolynomial.X (i, j))
+        (coefficientMatrix R n (CommutatorRing R n)) i j := by
+  rw [commutatorCoordinateMap, tangentAlgebraHomEquiv_symm_apply, commutatorDerivation_matrix]
+
+def commutatorAffineMap : Spec (.of (CommutatorRing R n)) ⟶ tangentScheme R (CoordinateRing R n) :=
+  Spec.map (CommRingCat.ofHom (commutatorCoordinateMap R n).toRingHom)
+
+def commutatorBaseProjection : Spec (.of (CommutatorRing R n)) ⟶ squareZeroScheme R n :=
+  Spec.map (CommRingCat.ofHom (algebraMap (CoordinateRing R n) (CommutatorRing R n)))
+
+theorem commutatorAffineMap_over : commutatorAffineMap R n ≫
+    tangentProjection R (CoordinateRing R n) = commutatorBaseProjection R n := by
+  change Spec.map _ ≫ Spec.map _ = Spec.map _
+  rw [← Spec.map_comp]
+  apply congrArg Spec.map
+  apply CommRingCat.hom_ext
+  exact RingHom.ext (commutatorCoordinateMap R n).commutes
+
+/-- The trivial matrix bundle on the orbit, obtained by restricting the polynomial bundle. -/
+def orbitMatrixBundle : Scheme.{u} :=
+  pullback (commutatorBaseProjection R n) (maximalRankOpen R n).ι
+
+def orbitMatrixBundleProjection : orbitMatrixBundle R n ⟶ maximalRankScheme R n :=
+  pullback.snd _ _
+
+/-- The global infinitesimal conjugation morphism into the canonical tangent scheme. -/
+def orbitCommutatorMap : orbitMatrixBundle R n ⟶ orbitTangentScheme R n :=
+  pullback.lift (pullback.fst _ _ ≫ commutatorAffineMap R n)
+    (orbitMatrixBundleProjection R n) (by
+      rw [Category.assoc, commutatorAffineMap_over]
+      exact pullback.condition)
+
+@[simp] theorem orbitCommutatorMap_over : orbitCommutatorMap R n ≫ orbitTangentProjection R n =
+    orbitMatrixBundleProjection R n := pullback.lift_snd _ _ _
+
+theorem orbitCommutatorMap_affine : orbitCommutatorMap R n ≫
+    pullback.fst (tangentProjection R (CoordinateRing R n)) (maximalRankOpen R n).ι =
+      pullback.fst (commutatorBaseProjection R n) (maximalRankOpen R n).ι ≫
+        commutatorAffineMap R n := pullback.lift_fst _ _ _
+
+def universalChartDerivation : Derivation R (ChartRing R n) (TangentRing R (ChartRing R n)) :=
+  (SymmetricAlgebra.ι (ChartRing R n) _).compDer (KaehlerDifferential.D R (ChartRing R n))
+
+def chartCommutatorSectionCoordinates (e : Equiv.Perm (n ⊕ n)) :
+    CommutatorRing R n →+* TangentRing R (ChartRing R n) :=
+  MvPolynomial.eval₂Hom
+    ((algebraMap (ChartRing R n) (TangentRing R (ChartRing R n))).comp
+      (permutationChartEmbedding R n e).toRingHom)
+    (fun ij => chartCommutatorGenerator R n e (TangentRing R (ChartRing R n))
+      (universalChartDerivation R n) ij.1 ij.2)
+
+theorem chartCommutatorSectionCoordinates_comp (e : Equiv.Perm (n ⊕ n)) :
+    letI := (permutationChartEmbedding R n e).toAlgebra
+    letI := IsScalarTower.of_algHom (permutationChartEmbedding R n e)
+    (chartCommutatorSectionCoordinates R n e).comp (commutatorCoordinateMap R n).toRingHom =
+      tangentMap R (CoordinateRing R n) (ChartRing R n) := by
+  letI := (permutationChartEmbedding R n e).toAlgebra
+  letI := IsScalarTower.of_algHom (permutationChartEmbedding R n e)
+  apply coordinateTangentRingHom_ext R n
+  · intro a
+    change chartCommutatorSectionCoordinates R n e
+      (commutatorCoordinateMap R n (algebraMap (CoordinateRing R n) _ a)) = _
+    rw [AlgHom.commutes, tangentMap_algebraMap]
+    change MvPolynomial.eval₂Hom _ _ (MvPolynomial.C a) = _
+    exact MvPolynomial.eval₂Hom_C _ _ a
+  · intro i j
+    change chartCommutatorSectionCoordinates R n e
+      (commutatorCoordinateMap R n (SymmetricAlgebra.ι _ _ (KaehlerDifferential.D R _ _))) = _
+    rw [commutatorCoordinateMap_D, tangentMap_D]
+    have hm := congrFun (congrFun (chartCommutatorGenerator_comm R n e
+      (TangentRing R (ChartRing R n)) (universalChartDerivation R n)) i) j
+    simpa [chartCommutatorSectionCoordinates, Symplectic.comm, Matrix.mul_apply,
+      coefficientMatrix, Matrix.map_apply, map_sum, map_sub, map_mul,
+      universalChartDerivation] using hm
+
+def orbitChartTangentMap (e : Equiv.Perm (n ⊕ n)) :
+    tangentScheme R (ChartRing R n) ⟶ orbitTangentScheme R n := by
+  letI := (permutationChartEmbedding R n e).toAlgebra
+  letI := IsScalarTower.of_algHom (permutationChartEmbedding R n e)
+  letI := permutationChart_isLocalization R n e
+  letI : Algebra.FormallyEtale (CoordinateRing R n) (ChartRing R n) :=
+    Algebra.FormallyEtale.of_isLocalization (Rₘ := ChartRing R n) (Submonoid.powers (chartMinor R n e))
+  exact tangentLiftToOpen R (CoordinateRing R n) (ChartRing R n) (maximalRankOpen R n)
+    (orbitChartMap R n e) (orbitChartMap_over R n e)
+
+def chartCommutatorSectionMap (e : Equiv.Perm (n ⊕ n)) :
+    tangentScheme R (ChartRing R n) ⟶ orbitMatrixBundle R n :=
+  pullback.lift (Spec.map (CommRingCat.ofHom (chartCommutatorSectionCoordinates R n e)))
+    (tangentProjection R (ChartRing R n) ≫ orbitChartMap R n e) (by
+      rw [Category.assoc, orbitChartMap_over]
+      change Spec.map _ ≫ Spec.map _ = Spec.map _ ≫ Spec.map _
+      rw [← Spec.map_comp, ← Spec.map_comp]
+      apply congrArg Spec.map
+      apply CommRingCat.hom_ext
+      exact RingHom.ext (fun a => MvPolynomial.eval₂Hom_C _ _ a))
+
+theorem chartCommutatorSectionMap_comp (e : Equiv.Perm (n ⊕ n)) :
+    chartCommutatorSectionMap R n e ≫ orbitCommutatorMap R n = orbitChartTangentMap R n e := by
+  letI := (permutationChartEmbedding R n e).toAlgebra
+  letI := IsScalarTower.of_algHom (permutationChartEmbedding R n e)
+  apply pullback.hom_ext
+  · rw [Category.assoc, orbitCommutatorMap_affine, ← Category.assoc, chartCommutatorSectionMap,
+      pullback.lift_fst]
+    simp only [orbitChartTangentMap, tangentLiftToOpen, pullback.lift_fst]
+    change Spec.map _ ≫ Spec.map _ = Spec.map _
+    rw [← Spec.map_comp]
+    apply congrArg Spec.map
+    apply CommRingCat.hom_ext
+    exact chartCommutatorSectionCoordinates_comp R n e
+  · change (chartCommutatorSectionMap R n e ≫ orbitCommutatorMap R n) ≫
+      orbitTangentProjection R n = _
+    rw [Category.assoc, orbitCommutatorMap_over]
+    exact (pullback.lift_snd _ _ _).trans (pullback.lift_snd _ _ _).symm
+
+theorem orbitChartTangent_isPullback (e : Equiv.Perm (n ⊕ n)) :
+    IsPullback (orbitChartTangentMap R n e) (tangentProjection R (ChartRing R n))
+      (orbitTangentProjection R n) (orbitChartMap R n e) := by
+  letI := (permutationChartEmbedding R n e).toAlgebra
+  letI := IsScalarTower.of_algHom (permutationChartEmbedding R n e)
+  letI := permutationChart_isLocalization R n e
+  letI : Algebra.FormallyEtale (CoordinateRing R n) (ChartRing R n) :=
+    Algebra.FormallyEtale.of_isLocalization (Rₘ := ChartRing R n) (Submonoid.powers (chartMinor R n e))
+  exact tangentLiftToOpen_isPullback R (CoordinateRing R n) (ChartRing R n) (maximalRankOpen R n)
+    (orbitChartMap R n e) (orbitChartMap_over R n e)
+
+/-- A section of the global commutator map on the pullback to each orbit chart. -/
+def orbitCommutatorLocalSection (e : Equiv.Perm (n ⊕ n)) :
+    pullback (orbitTangentProjection R n) (orbitChartMap R n e) ⟶ orbitMatrixBundle R n :=
+  (orbitChartTangent_isPullback R n e).isoPullback.inv ≫ chartCommutatorSectionMap R n e
+
+theorem orbitCommutatorLocalSection_comp (e : Equiv.Perm (n ⊕ n)) :
+    orbitCommutatorLocalSection R n e ≫ orbitCommutatorMap R n =
+      pullback.fst (orbitTangentProjection R n) (orbitChartMap R n e) := by
+  rw [orbitCommutatorLocalSection, Category.assoc, chartCommutatorSectionMap_comp]
+  exact (orbitChartTangent_isPullback R n e).isoPullback_inv_fst
+
+theorem orbitCommutatorMap_surjective : Surjective (orbitCommutatorMap R n) := by
+  constructor
+  intro y
+  let x := orbitTangentProjection R n y
+  have hx : x ∈ (⨆ e, orbitChartOpen R n e) := by rw [orbitChart_cover]; trivial
+  obtain ⟨e, he⟩ := TopologicalSpace.Opens.mem_iSup.mp hx
+  have hc : x ∈ Set.range (orbitChartMap R n e) := by
+    refine ⟨(SquareZeroGeometry.orbitChartIso R n e).hom ⟨x, he⟩, ?_⟩
+    change ((SquareZeroGeometry.orbitChartIso R n e).hom ≫ orbitChartMap R n e) ⟨x, he⟩ = x
+    simp only [orbitChartMap, Iso.hom_inv_id_assoc]
+    rfl
+  have hy : y ∈ Set.range (pullback.fst (orbitTangentProjection R n) (orbitChartMap R n e)) := by
+    rw [Scheme.Pullback.range_fst]
+    exact hc
+  obtain ⟨z, hz⟩ := hy
+  refine ⟨orbitCommutatorLocalSection R n e z, ?_⟩
+  exact (congrArg (fun f => f z) (orbitCommutatorLocalSection_comp R n e)).trans hz
+
+end
+end Universality.GlobalSymplectic

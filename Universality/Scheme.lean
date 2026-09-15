@@ -15,6 +15,8 @@ import Mathlib.AlgebraicGeometry.Sites.BigZariski
 import Mathlib.AlgebraicGeometry.Sites.Fpqc
 import Mathlib.CategoryTheory.Sites.Subsheaf
 import Mathlib.GroupTheory.Coset.Basic
+import Mathlib.CategoryTheory.Monoidal.Cartesian.Grp_
+import Mathlib.CategoryTheory.Monoidal.Cartesian.Over
 
 namespace Universality
 noncomputable section
@@ -1960,6 +1962,26 @@ def generalLinearHomEquiv (T : Scheme.{u}) :
       rw [affineCoordinates_toSpec]
       exact generalLinearEval_unit R n _
 
+/-- Coordinates of a morphism into `GL(2n)` obtained by evaluating the universal matrix. -/
+theorem generalLinearHomEquiv_comp_eval {S : Type u} [CommRing S] [Algebra R S]
+    {T : Scheme.{u}} (f : T ⟶ Spec (.of S)) (g : (Matrix (n ⊕ n) (n ⊕ n) S)ˣ) :
+    generalLinearHomEquiv R n T
+        (f ≫ Spec.map (CommRingCat.ofHom (generalLinearEval R n g).toRingHom)) =
+      ((affineCoordinates f).comp (algebraMap R S),
+        Units.map (affineCoordinates f).mapMatrix.toMonoidHom g) := by
+  apply Prod.ext
+  · change (affineCoordinates (f ≫ Spec.map _)).comp _ = _
+    rw [affineCoordinates_specMap]
+    ext r
+    exact congrArg (affineCoordinates f) ((generalLinearEval R n g).commutes r)
+  · change Units.map (affineCoordinates (f ≫ Spec.map _)).mapMatrix.toMonoidHom
+      (generalLinearUnit R n) = _
+    rw [affineCoordinates_specMap]
+    change Units.map (affineCoordinates f).mapMatrix.toMonoidHom
+      (Units.map (generalLinearEval R n g).toRingHom.mapMatrix.toMonoidHom
+        (generalLinearUnit R n)) = _
+    rw [generalLinearEval_unit]
+
 theorem conjugation_coordinates {T : Scheme.{u}} (f : T ⟶ generalLinearScheme R n) :
     (universalMatrix R n).map (affineCoordinates (f ≫ conjugationToSquareZero R n)) =
       conjugateJordan n (pointConjugator R n f) := by
@@ -2199,6 +2221,516 @@ theorem homogeneousQuotient_fppf_universal (F : Scheme.{u}ᵒᵖ ⥤ Type u)
 theorem orbit_fppf_isSheaf :
     Presieve.IsSheaf Scheme.fppfTopology (yoneda.obj (maximalRankScheme R n)) :=
   GrothendieckTopology.Subcanonical.isSheaf_of_isRepresentable _
+
+end
+end Universality.SquareZeroGeometry
+
+namespace Universality.SquareZeroGeometry
+noncomputable section
+open CategoryTheory Limits AlgebraicGeometry Opposite MvPolynomial
+set_option backward.isDefEq.respectTransparency false
+universe u
+variable (R n : Type u) [CommRing R] [Fintype n] [DecidableEq n]
+
+def chartUnitT : (Matrix n n (ChartRing R n))ˣ :=
+  Matrix.nonsingInvUnit _ (chartT_isUnit R n)
+
+def chartEval {S : Type u} [CommRing S] [Algebra R S]
+    (A : Matrix n n S) (T : (Matrix n n S)ˣ) : ChartRing R n →ₐ[R] S :=
+  awayLift R (chartDet R n)
+    (aeval (Sum.elim (fun ij => A ij.1 ij.2) (fun ij => T.val ij.1 ij.2))) (by
+      have hm : (universalMatrixB n).map
+          (aeval (Sum.elim (fun ij => A ij.1 ij.2) (fun ij => T.val ij.1 ij.2)) :
+            ChartPolynomialRing R n →ₐ[R] S) = T.val := by
+        ext i j
+        simp [universalMatrixB]
+      have hd := (AlgHom.map_det
+        (aeval (Sum.elim (fun ij => A ij.1 ij.2) (fun ij => T.val ij.1 ij.2)) :
+          ChartPolynomialRing R n →ₐ[R] S) (universalMatrixB n)).trans (congrArg Matrix.det hm)
+      change IsUnit ((aeval _ : ChartPolynomialRing R n →ₐ[R] S) (universalMatrixB n).det)
+      rw [hd]
+      exact (Matrix.isUnit_iff_isUnit_det _).mp T.isUnit)
+
+@[simp] theorem chartEval_A {S : Type u} [CommRing S] [Algebra R S]
+    (A : Matrix n n S) (T : (Matrix n n S)ˣ) :
+    (chartA R n).map (chartEval R n A T) = A := by
+  ext i j
+  simp [chartA, chartEval, universalMatrixA]
+
+@[simp] theorem chartEval_T {S : Type u} [CommRing S] [Algebra R S]
+    (A : Matrix n n S) (T : (Matrix n n S)ˣ) :
+    Units.map (chartEval R n A T).toRingHom.mapMatrix.toMonoidHom (chartUnitT R n) = T := by
+  apply Units.ext
+  change (chartT R n).map (chartEval R n A T) = T.val
+  ext i j
+  simp [chartT, chartEval, universalMatrixB]
+
+theorem chartRingHom_ext {S : Type u} [CommRing S] {f g : ChartRing R n →+* S}
+    (hb : f.comp (algebraMap R (ChartRing R n)) = g.comp (algebraMap R (ChartRing R n)))
+    (hA : (chartA R n).map f = (chartA R n).map g)
+    (hT : (chartT R n).map f = (chartT R n).map g) : f = g := by
+  apply IsLocalization.ringHom_ext (Submonoid.powers (chartDet R n))
+  apply MvPolynomial.ringHom_ext
+  · intro r
+    exact DFunLike.congr_fun hb r
+  · rintro (ij | ij)
+    · exact congrFun (congrFun hA ij.1) ij.2
+    · exact congrFun (congrFun hT ij.1) ij.2
+
+def chartHomEquiv (T : Scheme.{u}) :
+    (T ⟶ Spec (.of (ChartRing R n))) ≃
+      (R →+* Γ(T, ⊤)) × Matrix n n Γ(T, ⊤) × (Matrix n n Γ(T, ⊤))ˣ where
+  toFun f := ((affineCoordinates f).comp (algebraMap R (ChartRing R n)),
+    (chartA R n).map (affineCoordinates f),
+    Units.map (affineCoordinates f).mapMatrix.toMonoidHom (chartUnitT R n))
+  invFun p :=
+    letI := p.1.toAlgebra
+    T.toSpecΓ ≫ Spec.map (CommRingCat.ofHom (chartEval R n p.2.1 p.2.2).toRingHom)
+  left_inv f := by
+    letI := ((affineCoordinates f).comp (algebraMap R (ChartRing R n))).toAlgebra
+    apply affineCoordinates_injective
+    rw [affineCoordinates_toSpec]
+    apply chartRingHom_ext R n
+    · ext r
+      exact (chartEval R n _ _).commutes r
+    · exact chartEval_A R n _ _
+    · exact congrArg Units.val (chartEval_T R n _ _)
+  right_inv p := by
+    letI := p.1.toAlgebra
+    dsimp only
+    rw [affineCoordinates_toSpec]
+    apply Prod.ext
+    · ext r
+      exact (chartEval R n _ _).commutes r
+    · exact Prod.ext (chartEval_A R n _ _) (chartEval_T R n _ _)
+
+def stabilizerBlock {S : Type u} [CommRing S]
+    (P : (Matrix n n S)ˣ) (Q : Matrix n n S) :
+    (Matrix (n ⊕ n) (n ⊕ n) S)ˣ where
+  val := Matrix.fromBlocks P.val Q 0 P.val
+  inv := Matrix.fromBlocks P.inv (-(P.inv * Q * P.inv)) 0 P.inv
+  val_inv := by
+    simp [Matrix.fromBlocks_multiply, mul_assoc]
+  inv_val := by
+    simp [Matrix.fromBlocks_multiply, mul_assoc]
+
+theorem stabilizerBlock_mem {S : Type u} [CommRing S]
+    (P : (Matrix n n S)ˣ) (Q : Matrix n n S) :
+    stabilizerBlock n P Q ∈ jordanStabilizer n S :=
+  (mem_jordanStabilizer_iff n _).mpr ⟨P.val, Q, P.isUnit, rfl⟩
+
+theorem stabilizerBlock_injective {S : Type u} [CommRing S]
+    {P P' : (Matrix n n S)ˣ} {Q Q' : Matrix n n S}
+    (h : stabilizerBlock n P Q = stabilizerBlock n P' Q') : P = P' ∧ Q = Q' := by
+  have hm := congrArg Units.val h
+  exact ⟨Units.ext (congrArg Matrix.toBlocks₁₁ hm), congrArg Matrix.toBlocks₁₂ hm⟩
+
+theorem map_stabilizerBlock {S B : Type u} [CommRing S] [CommRing B]
+    (f : S →+* B) (P : (Matrix n n S)ˣ) (Q : Matrix n n S) :
+    Units.map f.mapMatrix.toMonoidHom (stabilizerBlock n P Q) =
+      stabilizerBlock n (Units.map f.mapMatrix.toMonoidHom P) (Q.map f) := by
+  apply Units.ext
+  simp [stabilizerBlock, Matrix.fromBlocks_map]
+
+/-- Coordinates `(Q,P)` with `det P` inverted represent the explicit stabilizer. -/
+def stabilizerScheme : Scheme := Spec (.of (ChartRing R n))
+
+def stabilizerInclusion : stabilizerScheme R n ⟶ generalLinearScheme R n :=
+  Spec.map (CommRingCat.ofHom
+    (generalLinearEval R n (stabilizerBlock n (chartUnitT R n) (chartA R n))).toRingHom)
+
+theorem stabilizerScheme_dimension : SmoothOfRelativeDimension (2 * Fintype.card n ^ 2)
+    (Spec.map (CommRingCat.ofHom (algebraMap R (ChartRing R n)))) := by
+  apply (HasRingHomProperty.Spec_iff (P := @SmoothOfRelativeDimension (2 * Fintype.card n ^ 2))).mpr
+  exact RingHom.locally_of RingHom.isStandardSmoothOfRelativeDimension_respectsIso _
+    ((RingHom.isStandardSmoothOfRelativeDimension_algebraMap (2 * Fintype.card n ^ 2)).mpr inferInstance)
+
+theorem stabilizerInclusion_coordinates {T : Scheme.{u}} (f : T ⟶ stabilizerScheme R n) :
+    generalLinearHomEquiv R n T (f ≫ stabilizerInclusion R n) =
+      ((chartHomEquiv R n T f).1,
+        stabilizerBlock n (chartHomEquiv R n T f).2.2 (chartHomEquiv R n T f).2.1) := by
+  rw [stabilizerInclusion, generalLinearHomEquiv_comp_eval, map_stabilizerBlock]
+  rfl
+
+theorem stabilizerInclusion_hom_injective (T : Scheme.{u}) :
+    Function.Injective (fun f : T ⟶ stabilizerScheme R n => f ≫ stabilizerInclusion R n) := by
+  intro f g h
+  apply (chartHomEquiv R n T).injective
+  have he := congrArg (generalLinearHomEquiv R n T) h
+  rw [stabilizerInclusion_coordinates, stabilizerInclusion_coordinates] at he
+  have hm := stabilizerBlock_injective n (congrArg Prod.snd he)
+  have hb := congrArg Prod.fst he
+  apply Prod.ext
+  · exact hb
+  · exact Prod.ext hm.2 hm.1
+
+theorem stabilizerInclusion_range (T : Scheme.{u}) (g : T ⟶ generalLinearScheme R n) :
+    (∃ f : T ⟶ stabilizerScheme R n, f ≫ stabilizerInclusion R n = g) ↔
+      pointConjugator R n g ∈ jordanStabilizer n Γ(T, ⊤) := by
+  constructor
+  · rintro ⟨f, rfl⟩
+    have he := congrArg Prod.snd (stabilizerInclusion_coordinates R n f)
+    change pointConjugator R n (f ≫ stabilizerInclusion R n) = _ at he
+    rw [he]
+    exact stabilizerBlock_mem n _ _
+  · intro hg
+    obtain ⟨P, Q, hP, he⟩ := (mem_jordanStabilizer_iff n _).mp hg
+    let f := (chartHomEquiv R n T).symm (generalLinearBase R n g, Q, hP.unit)
+    refine ⟨f, (generalLinearHomEquiv R n T).injective ?_⟩
+    rw [stabilizerInclusion_coordinates]
+    dsimp only [f]
+    rw [Equiv.apply_symm_apply]
+    apply Prod.ext
+    · rfl
+    apply Units.ext
+    simpa [stabilizerBlock] using he.symm
+
+/-- The inverse image of an orbit chart has coordinates for the chart and its stabilizer. -/
+abbrev OrbitTrivializationRing := ChartRing (ChartRing R n) n
+
+def orbitTrivializationFst : Spec (.of (OrbitTrivializationRing R n)) ⟶
+    Spec (.of (ChartRing R n)) :=
+  Spec.map (CommRingCat.ofHom (algebraMap (ChartRing R n) (OrbitTrivializationRing R n)))
+
+def orbitTrivializationUnit (e : Equiv.Perm (n ⊕ n)) :
+    (Matrix (n ⊕ n) (n ⊕ n) (OrbitTrivializationRing R n))ˣ :=
+  Units.map (algebraMap (ChartRing R n) (OrbitTrivializationRing R n)).mapMatrix.toMonoidHom
+    (chartConjugator R n e) *
+      stabilizerBlock n (chartUnitT (ChartRing R n) n) (chartA (ChartRing R n) n)
+
+def orbitTrivializationToGL (e : Equiv.Perm (n ⊕ n)) :
+    Spec (.of (OrbitTrivializationRing R n)) ⟶ generalLinearScheme R n :=
+  Spec.map (CommRingCat.ofHom (generalLinearEval R n (orbitTrivializationUnit R n e)).toRingHom)
+
+theorem orbitTrivialization_coordinates (e : Equiv.Perm (n ⊕ n)) {T : Scheme.{u}}
+    (f : T ⟶ Spec (.of (OrbitTrivializationRing R n))) :
+    generalLinearHomEquiv R n T (f ≫ orbitTrivializationToGL R n e) =
+      ((chartHomEquiv (ChartRing R n) n T f).1.comp (algebraMap R (ChartRing R n)),
+        Units.map (chartHomEquiv (ChartRing R n) n T f).1.mapMatrix.toMonoidHom
+          (chartConjugator R n e) *
+        stabilizerBlock n (chartHomEquiv (ChartRing R n) n T f).2.2
+          (chartHomEquiv (ChartRing R n) n T f).2.1) := by
+  rw [orbitTrivializationToGL, generalLinearHomEquiv_comp_eval,
+    orbitTrivializationUnit, map_mul, map_stabilizerBlock]
+  rfl
+
+theorem chartSection_coordinates (e : Equiv.Perm (n ⊕ n)) {T : Scheme.{u}}
+    (f : T ⟶ Spec (.of (ChartRing R n))) :
+    generalLinearHomEquiv R n T (f ≫ chartSection R n e) =
+      ((affineCoordinates f).comp (algebraMap R (ChartRing R n)),
+        Units.map (affineCoordinates f).mapMatrix.toMonoidHom (chartConjugator R n e)) := by
+  exact generalLinearHomEquiv_comp_eval R n f (chartConjugator R n e)
+
+set_option maxHeartbeats 800000 in
+theorem orbitTrivialization_condition (e : Equiv.Perm (n ⊕ n)) :
+    orbitTrivializationFst R n ≫ chartSection R n e ≫ orbitProjection R n =
+      orbitTrivializationToGL R n e ≫ orbitProjection R n := by
+  apply (cancel_mono (maximalRankOpen R n).ι).mp
+  simp only [Category.assoc, orbitProjection_ι]
+  rw [← Category.assoc]
+  apply (conjugation_fibres R n _ _).mpr
+  have hf := chartSection_coordinates R n e (orbitTrivializationFst R n)
+  have hg := orbitTrivialization_coordinates R n e (𝟙 _)
+  simp only [Category.id_comp] at hg
+  have hbase : affineCoordinates (orbitTrivializationFst R n) =
+      (chartHomEquiv (ChartRing R n) n _ (𝟙 _)).1 := by
+    change affineCoordinates (Spec.map _) = (affineCoordinates (𝟙 _)).comp _
+    simpa using affineCoordinates_specMap (𝟙 (Spec (.of (OrbitTrivializationRing R n))))
+      (algebraMap (ChartRing R n) (OrbitTrivializationRing R n))
+  rw [hbase] at hf
+  constructor
+  · exact (congrArg Prod.fst hf).trans (congrArg Prod.fst hg).symm
+  · have hfm := congrArg Prod.snd hf
+    have hgm := congrArg Prod.snd hg
+    simp only [generalLinearHomEquiv, Equiv.coe_fn_mk] at hfm hgm
+    rw [hfm, hgm, inv_mul_cancel_left]
+    exact stabilizerBlock_mem n _ _
+
+theorem orbitTrivialization_hom_ext (e : Equiv.Perm (n ⊕ n)) {T : Scheme.{u}}
+    {f g : T ⟶ Spec (.of (OrbitTrivializationRing R n))}
+    (ha : f ≫ orbitTrivializationFst R n = g ≫ orbitTrivializationFst R n)
+    (hg : f ≫ orbitTrivializationToGL R n e = g ≫ orbitTrivializationToGL R n e) : f = g := by
+  have hb := congrArg affineCoordinates ha
+  simp only [orbitTrivializationFst, affineCoordinates_specMap] at hb
+  change (chartHomEquiv (ChartRing R n) n T f).1 =
+    (chartHomEquiv (ChartRing R n) n T g).1 at hb
+  have hcoords := congrArg (generalLinearHomEquiv R n T) hg
+  rw [orbitTrivialization_coordinates, orbitTrivialization_coordinates] at hcoords
+  have hm := congrArg Prod.snd hcoords
+  dsimp only at hm
+  rw [hb] at hm
+  have he := stabilizerBlock_injective n (mul_left_cancel hm)
+  apply (chartHomEquiv (ChartRing R n) n T).injective
+  exact Prod.ext hb (Prod.ext he.2 he.1)
+
+theorem orbitTrivialization_isPullback (e : Equiv.Perm (n ⊕ n)) :
+    IsPullback (orbitTrivializationFst R n) (orbitTrivializationToGL R n e)
+      (chartSection R n e ≫ orbitProjection R n) (orbitProjection R n) where
+  w := orbitTrivialization_condition R n e
+  isLimit' := ⟨PullbackCone.isLimitAux' _ fun s => by
+    apply Classical.choice
+    have hc : (s.fst ≫ chartSection R n e) ≫ conjugationToSquareZero R n =
+        s.snd ≫ conjugationToSquareZero R n := by
+      have h := congrArg (fun f => f ≫ (maximalRankOpen R n).ι) s.condition
+      simpa only [Category.assoc, orbitProjection_ι] using h
+    have hf := (conjugation_fibres R n _ _).mp hc
+    obtain ⟨P, Q, hP, hPQ⟩ := (mem_jordanStabilizer_iff n _).mp hf.2
+    let l := (chartHomEquiv (ChartRing R n) n s.pt).symm (affineCoordinates s.fst, Q, hP.unit)
+    have hl₁ : l ≫ orbitTrivializationFst R n = s.fst := by
+      apply affineCoordinates_injective
+      rw [orbitTrivializationFst, affineCoordinates_specMap]
+      change (chartHomEquiv (ChartRing R n) n s.pt l).1 = _
+      dsimp only [l]
+      rw [Equiv.apply_symm_apply]
+    have hl₂ : l ≫ orbitTrivializationToGL R n e = s.snd := by
+      apply (generalLinearHomEquiv R n s.pt).injective
+      rw [orbitTrivialization_coordinates]
+      dsimp only [l]
+      rw [Equiv.apply_symm_apply]
+      have hs := chartSection_coordinates R n e s.fst
+      have hsb := congrArg Prod.fst hs
+      have hsm := congrArg Prod.snd hs
+      apply Prod.ext
+      · exact hsb.symm.trans hf.1
+      · have hp : stabilizerBlock n hP.unit Q =
+            (pointConjugator R n (s.fst ≫ chartSection R n e))⁻¹ * pointConjugator R n s.snd := by
+          apply Units.ext
+          simpa [stabilizerBlock] using hPQ.symm
+        dsimp only
+        rw [hp]
+        change pointConjugator R n (s.fst ≫ chartSection R n e) = _ at hsm
+        simp only at hsm
+        rw [← hsm]
+        exact mul_inv_cancel_left _ _
+    exact ⟨⟨l, hl₁, hl₂, fun hm₁ hm₂ =>
+      orbitTrivialization_hom_ext R n e (hm₁.trans hl₁.symm) (hm₂.trans hl₂.symm)⟩⟩⟩
+
+theorem orbitTrivializationOpen_isPullback (e : Equiv.Perm (n ⊕ n)) :
+    IsPullback (orbitTrivializationFst R n ≫ (orbitChartIso R n e).inv)
+      (orbitTrivializationToGL R n e) (orbitChartOpen R n e).ι (orbitProjection R n) := by
+  apply (orbitTrivialization_isPullback R n e).of_iso
+    (Iso.refl _) (orbitChartIso R n e).symm (Iso.refl _) (Iso.refl _)
+  · simp
+  · simp
+  · simp only [Iso.symm_hom]
+    apply (cancel_epi (orbitChartIso R n e).hom).mp
+    simpa only [Category.assoc, Iso.hom_inv_id_assoc] using orbitChartSection R n e
+  · simp
+
+/-- Conjugation is smooth of relative dimension `2n²`, with the explicit stabilizer as fibre. -/
+theorem orbitProjection_dimension : SmoothOfRelativeDimension (2 * Fintype.card n ^ 2)
+    (orbitProjection R n) := by
+  apply IsZariskiLocalAtTarget.of_openCover (P := @SmoothOfRelativeDimension (2 * Fintype.card n ^ 2))
+    (orbitOpenCover R n)
+  intro e
+  change SmoothOfRelativeDimension (2 * Fintype.card n ^ 2)
+    (pullback.snd (orbitProjection R n) (orbitChartOpen R n e).ι)
+  rw [← (orbitTrivializationOpen_isPullback R n e).flip.isoPullback_inv_snd]
+  apply IsZariskiLocalAtSource.comp
+  have hd : SmoothOfRelativeDimension (2 * Fintype.card n ^ 2) (orbitTrivializationFst R n) :=
+    stabilizerScheme_dimension (ChartRing R n) n
+  exact (MorphismProperty.cancel_right_of_respectsIso
+    (@SmoothOfRelativeDimension (2 * Fintype.card n ^ 2)) _ _).mpr hd
+
+theorem orbitProjection_smooth : Smooth (orbitProjection R n) := by
+  letI := orbitProjection_dimension R n
+  exact SmoothOfRelativeDimension.smooth (2 * Fintype.card n ^ 2) _
+
+theorem orbitProjection_surjective : Surjective (orbitProjection R n) := by
+  constructor
+  intro x
+  have hx : x ∈ (⨆ e, orbitChartOpen R n e) := by rw [orbitChart_cover]; trivial
+  obtain ⟨e, he⟩ := (TopologicalSpace.Opens.mem_iSup.mp hx)
+  refine ⟨((orbitChartIso R n e).hom ≫ chartSection R n e) ⟨x, he⟩, ?_⟩
+  exact congrArg (fun f => f ⟨x, he⟩) (orbitChartSection R n e)
+
+/-- Faithful flatness of the actual quotient morphism, expressed as flat and surjective. -/
+theorem orbitProjection_faithfullyFlat : Flat (orbitProjection R n) ∧ Surjective (orbitProjection R n) := by
+  letI := orbitProjection_smooth R n
+  exact ⟨inferInstance, orbitProjection_surjective R n⟩
+
+def stabilizerOver : Over (Spec (.of R)) :=
+  Over.mk (Spec.map (CommRingCat.ofHom (algebraMap R (ChartRing R n))))
+
+theorem stabilizerInclusion_base {T : Scheme.{u}} (f : T ⟶ stabilizerScheme R n) :
+    generalLinearBase R n (f ≫ stabilizerInclusion R n) =
+      affineCoordinates (f ≫ (stabilizerOver R n).hom) := by
+  have h := congrArg Prod.fst (stabilizerInclusion_coordinates R n f)
+  change _ = affineCoordinates (f ≫ Spec.map (CommRingCat.ofHom (algebraMap R (ChartRing R n))))
+  rw [affineCoordinates_specMap]
+  exact h
+
+def stabilizerGroupFunctor : (Over (Spec (.of R)))ᵒᵖ ⥤ GrpCat.{u} where
+  obj T := GrpCat.of (jordanStabilizer n Γ(T.unop.left, ⊤))
+  map α := GrpCat.ofHom {
+    toFun g := ⟨Units.map α.unop.left.appTop.hom.mapMatrix.toMonoidHom g.val, by
+      have h := congrArg (fun M => M.map α.unop.left.appTop.hom) g.property
+      simpa only [Matrix.map_mul, map_jordanCell] using h⟩
+    map_one' := by apply Subtype.ext; exact map_one _
+    map_mul' := by intro g h; apply Subtype.ext; exact map_mul _ _ _ }
+  map_id T := by
+    apply GrpCat.hom_ext
+    apply MonoidHom.ext
+    intro g
+    apply Subtype.ext
+    apply Units.ext
+    ext i j
+    simp
+  map_comp α β := by
+    apply GrpCat.hom_ext
+    apply MonoidHom.ext
+    intro g
+    apply Subtype.ext
+    apply Units.ext
+    ext i j
+    simp
+
+def stabilizerOverPoint {T : Over (Spec (.of R))} (f : T ⟶ stabilizerOver R n) :
+    jordanStabilizer n Γ(T.left, ⊤) :=
+  ⟨pointConjugator R n (f.left ≫ stabilizerInclusion R n),
+    (stabilizerInclusion_range R n T.left _).mp ⟨f.left, rfl⟩⟩
+
+theorem stabilizerOverPoint_bijective (T : Over (Spec (.of R))) :
+    Function.Bijective (stabilizerOverPoint R n (T := T)) := by
+  constructor
+  · intro f g h
+    apply Over.OverMorphism.ext
+    apply stabilizerInclusion_hom_injective R n T.left
+    apply generalLinearHom_ext R n
+    · rw [stabilizerInclusion_base, stabilizerInclusion_base, Over.w, Over.w]
+    · exact congrArg Subtype.val h
+  · intro h
+    let g := (generalLinearHomEquiv R n T.left).symm (affineCoordinates T.hom, h.val)
+    have hg := (generalLinearHomEquiv R n T.left).apply_symm_apply (affineCoordinates T.hom, h.val)
+    have hgm : pointConjugator R n g = h.val := congrArg Prod.snd hg
+    have hgb : generalLinearBase R n g = affineCoordinates T.hom := congrArg Prod.fst hg
+    obtain ⟨f, hf⟩ := (stabilizerInclusion_range R n T.left g).mpr (hgm.symm ▸ h.property)
+    have hb : f ≫ (stabilizerOver R n).hom = T.hom := by
+      apply affineCoordinates_injective
+      rw [← stabilizerInclusion_base, hf, hgb]
+    refine ⟨Over.homMk f hb, ?_⟩
+    apply Subtype.ext
+    change pointConjugator R n (f ≫ stabilizerInclusion R n) = h.val
+    rw [hf, hgm]
+
+def stabilizerRepresentableBy :
+    (stabilizerGroupFunctor R n ⋙ forget _).RepresentableBy (stabilizerOver R n) where
+  homEquiv := Equiv.ofBijective (stabilizerOverPoint R n) (stabilizerOverPoint_bijective R n _)
+  homEquiv_comp f g := by
+    apply Subtype.ext
+    apply Units.ext
+    change (generalLinearUnit R n).val.map
+      (affineCoordinates ((f ≫ g).left ≫ stabilizerInclusion R n)) =
+        ((generalLinearUnit R n).val.map
+          (affineCoordinates (g.left ≫ stabilizerInclusion R n))).map f.left.appTop.hom
+    rw [show (f ≫ g).left ≫ stabilizerInclusion R n =
+      f.left ≫ (g.left ≫ stabilizerInclusion R n) from Category.assoc _ _ _, affineCoordinates_comp]
+    rfl
+
+/-- The represented stabilizer is a group scheme over the specified commutative base. -/
+@[implicit_reducible] def stabilizerGroupScheme : GrpObj (stabilizerOver R n) :=
+  GrpObj.ofRepresentableBy _ (stabilizerGroupFunctor R n) (stabilizerRepresentableBy R n)
+
+abbrev MatrixCoordinateRing := MvPolynomial (n × n) R
+
+def smallGenericMatrix : Matrix n n (MatrixCoordinateRing R n) := fun i j => X (i, j)
+
+abbrev SmallGeneralLinearRing := Localization.Away (smallGenericMatrix R n).det
+
+def smallGeneralLinearUnit : (Matrix n n (SmallGeneralLinearRing R n))ˣ :=
+  Matrix.nonsingInvUnit ((smallGenericMatrix R n).map (algebraMap _ _)) (by
+    have hd : algebraMap (MatrixCoordinateRing R n) (SmallGeneralLinearRing R n)
+        (smallGenericMatrix R n).det =
+          ((smallGenericMatrix R n).map (algebraMap _ (SmallGeneralLinearRing R n))).det :=
+      (algebraMap (MatrixCoordinateRing R n) (SmallGeneralLinearRing R n)).map_det _
+    rw [← hd]
+    exact IsLocalization.Away.algebraMap_isUnit _)
+
+def stabilizerDiagonal : SmallGeneralLinearRing R n →ₐ[R] ChartRing R n :=
+  awayLift R (smallGenericMatrix R n).det (aeval (fun ij => chartT R n ij.1 ij.2)) (by
+    have hm : (smallGenericMatrix R n).map
+        (aeval (fun ij => chartT R n ij.1 ij.2) : MatrixCoordinateRing R n →ₐ[R] ChartRing R n) =
+          chartT R n := by ext i j; simp [smallGenericMatrix]
+    have hd := (AlgHom.map_det
+      (aeval (fun ij => chartT R n ij.1 ij.2) : MatrixCoordinateRing R n →ₐ[R] ChartRing R n)
+        (smallGenericMatrix R n)).trans (congrArg Matrix.det hm)
+    rw [hd]
+    exact chartT_isUnit R n)
+
+def stabilizerUpper : MatrixCoordinateRing R n →ₐ[R] ChartRing R n :=
+  aeval (fun ij => chartA R n ij.1 ij.2)
+
+theorem stabilizerProduct_isPushout :
+    IsPushout (CommRingCat.ofHom (algebraMap R (SmallGeneralLinearRing R n)))
+      (CommRingCat.ofHom (algebraMap R (MatrixCoordinateRing R n)))
+      (CommRingCat.ofHom (stabilizerDiagonal R n).toRingHom)
+      (CommRingCat.ofHom (stabilizerUpper R n).toRingHom) where
+  w := by
+    ext r
+    exact ((stabilizerDiagonal R n).commutes r).trans ((stabilizerUpper R n).commutes r).symm
+  isColimit' := ⟨PushoutCocone.isColimitAux' _ fun s => by
+    let b := s.inl.hom.comp (algebraMap R (SmallGeneralLinearRing R n))
+    letI := b.toAlgebra
+    let P := Units.map s.inl.hom.mapMatrix.toMonoidHom (smallGeneralLinearUnit R n)
+    let Q := (smallGenericMatrix R n).map s.inr.hom
+    let L := chartEval R n Q P
+    have hb (r : R) : s.inl.hom (algebraMap R (SmallGeneralLinearRing R n) r) =
+        s.inr.hom (algebraMap R (MatrixCoordinateRing R n) r) :=
+      congrArg (fun f => f.hom r) s.condition
+    have hT : (chartT R n).map L = P.val := congrArg Units.val (chartEval_T R n Q P)
+    have hA : (chartA R n).map L = Q := chartEval_A R n Q P
+    have h₁ : CommRingCat.ofHom (stabilizerDiagonal R n).toRingHom ≫
+        CommRingCat.ofHom L.toRingHom = s.inl := by
+      apply CommRingCat.hom_ext
+      apply IsLocalization.ringHom_ext (Submonoid.powers (smallGenericMatrix R n).det)
+      apply MvPolynomial.ringHom_ext
+      · intro r
+        change L ((stabilizerDiagonal R n) (algebraMap R _ r)) = _
+        rw [AlgHom.commutes, L.commutes]
+        rfl
+      · intro ij
+        change L ((stabilizerDiagonal R n) (algebraMap _ _ (X ij))) = _
+        rw [stabilizerDiagonal, awayLift_algebraMap, aeval_X]
+        exact congrFun (congrFun hT ij.1) ij.2
+    have h₂ : CommRingCat.ofHom (stabilizerUpper R n).toRingHom ≫
+        CommRingCat.ofHom L.toRingHom = s.inr := by
+      apply CommRingCat.hom_ext
+      apply MvPolynomial.ringHom_ext
+      · intro r
+        change L ((stabilizerUpper R n) (C r)) = _
+        rw [stabilizerUpper, aeval_C, L.commutes]
+        exact hb r
+      · intro ij
+        change L ((stabilizerUpper R n) (X ij)) = _
+        rw [stabilizerUpper, aeval_X]
+        exact congrFun (congrFun hA ij.1) ij.2
+    refine ⟨CommRingCat.ofHom L.toRingHom, h₁, h₂, ?_⟩
+    intro m hm₁ hm₂
+    apply CommRingCat.hom_ext
+    apply chartRingHom_ext R n
+    · ext r
+      have hm := congrArg (fun f => f.hom (algebraMap R (SmallGeneralLinearRing R n) r)) hm₁
+      change m.hom ((stabilizerDiagonal R n) (algebraMap R _ r)) = _ at hm
+      rw [AlgHom.commutes] at hm
+      exact hm.trans (L.commutes r).symm
+    · ext i j
+      have hm := congrArg (fun f => f.hom (X (i, j))) hm₂
+      change m.hom ((stabilizerUpper R n) (X (i, j))) = _ at hm
+      rw [stabilizerUpper, aeval_X] at hm
+      exact hm.trans (congrFun (congrFun hA i) j).symm
+    · ext i j
+      have hm := congrArg (fun f => f.hom (algebraMap (MatrixCoordinateRing R n)
+        (SmallGeneralLinearRing R n) (X (i, j)))) hm₁
+      change m.hom ((stabilizerDiagonal R n) (algebraMap _ _ (X (i, j)))) = _ at hm
+      rw [stabilizerDiagonal, awayLift_algebraMap, aeval_X] at hm
+      exact hm.trans (congrFun (congrFun hT i) j).symm⟩
+
+/-- As a scheme, the stabilizer is exactly `GL(n) ×_R M(n)`. -/
+def stabilizerProductIso : stabilizerScheme R n ≅
+    pullback
+      (Spec.map (CommRingCat.ofHom (algebraMap R (SmallGeneralLinearRing R n))))
+      (Spec.map (CommRingCat.ofHom (algebraMap R (MatrixCoordinateRing R n)))) :=
+  (isPullback_SpecMap_of_isPushout _ _ _ _ (stabilizerProduct_isPushout R n)).isoPullback
 
 end
 end Universality.SquareZeroGeometry
