@@ -163,10 +163,18 @@ theorem affine_orbit_universality (k A : Type u)
                   ((chartT k n).map (primeChartEvaluation k n p.val e he))
                   ((chartA k n).map (primeChartEvaluation k n p.val e he))) ∧
             (∀ p : maximalRankOpen k n, IsClosed (exteriorGermEvaluation (CoordinateRing k n) k p.val (ω.val p))) ∧
+            (∀ p : maximalRankOpen k n,
+              deRhamTwo k (PrimeLocalRing (CoordinateRing k n) p.val) (orbitPrimeDifferentialBasis k n p)
+                (primeExteriorEquiv (CoordinateRing k n) k p.val (ω.val p)) = 0) ∧
+            kaehlerSectionPullback k (CoordinateRing k n) (GeneralLinearRing k n) (orbitCoordinateMap k n)
+              (maximalRankOpen k n) ⊤ (fun q _ => conjugationToSquareZero_mem_maximalRank k n q) ω =
+                StructureSheaf.toOpenₗ (GeneralLinearRing k n) (KaehlerTwoForms (GeneralLinearRing k n) k) ⊤
+                  (-deRhamOne k (GeneralLinearRing k n) (generalLinearDeRhamBasis k n)
+                    (maurerCartanPotential k n)) ∧
             (∀ p : maximalRankOpen k n, Function.Bijective
               (exteriorGermEvaluation (CoordinateRing k n) k p.val (ω.val p))) := by
 
-  -- Common witnesses for all eight parts
+  -- Common witnesses for all parts
   obtain ⟨r⟩ := AffineOrbitRealization.nonempty k A
   refine ⟨r.Index, inferInstance, inferInstance, r.Equation, inferInstance,
     r.affineEquations, r.sectionIdeal,
@@ -197,7 +205,8 @@ theorem affine_orbit_universality (k A : Type u)
       specializeChartDerivation_surjective k r.Index, ?_, cellDifferential_selfOrthogonal k r.Index,
       (fun e => ⟨orbitTangentChartIso k r.Index e, orbitTangentChartIso_over k r.Index e⟩),
       orbitKaehlerTwoForm k r.Index, orbitKaehlerTwoForm_chart k r.Index,
-      orbitKaehlerTwoForm_closed k r.Index, orbitKaehlerTwoForm_perfect k r.Index⟩
+      orbitKaehlerTwoForm_closed k r.Index, orbitKaehlerTwoForm_closed_by_descent k r.Index,
+      orbitKaehlerPullback_eq_deRham k r.Index, orbitKaehlerTwoForm_perfect k r.Index⟩
     intro D E
     rw [r.symplectic.local_formula]
     exact cellOrbitForm_specialize k r.Index D E
@@ -326,6 +335,9 @@ theorem orbit_differential_geometry (k n : Type u)
           ((universalMatrix k n).map (orbitCoordinateMap k n))) ∧
 
     -- The Maurer–Cartan equation and exact pullback of the KKS form
+    (∀ D : Derivation k (GeneralLinearRing k n) (GeneralLinearRing k n),
+      D.liftKaehlerDifferential (maurerCartanPotential k n) =
+        maurerCartanTrace (generalLinearUnit k n) jordanCell D) ∧
     (∀ D E : Derivation k (GeneralLinearRing k n) (GeneralLinearRing k n),
       derivMatrix D (maurerCartan (generalLinearUnit k n) E) -
         derivMatrix E (maurerCartan (generalLinearUnit k n) D) -
@@ -345,7 +357,8 @@ theorem orbit_differential_geometry (k n : Type u)
     orbitProjectionTangentMap_over k n, (fun T x => ⟨orbitTangentHomEquiv k n T x⟩),
     orbitProjectionTangentMap_affine k n,
     chartTangentProjection_section k n, chartTangentProjection_derivative k n,
-    orbitProjection_derivative k n, maurerCartan_equation (generalLinearUnit k n),
+    orbitProjection_derivative k n, maurerCartanPotential_evaluation k n,
+    maurerCartan_equation (generalLinearUnit k n),
     orbitProjection_KKS_exact k n⟩
 
 /-- A canonical exterior-square Kähler section, with an invertible contraction and Lagrangian cell. -/
@@ -381,6 +394,16 @@ theorem orbit_global_symplectic_form (k n : Type u)
       -- Closedness and an isomorphism from derivations to actual Kähler one-forms
       (∀ p, (exteriorGermEvaluation (CoordinateRing k n) k p.val (ω.val p)).IsAlt) ∧
       (∀ p, IsClosed (exteriorGermEvaluation (CoordinateRing k n) k p.val (ω.val p))) ∧
+      (∀ p : maximalRankOpen k n,
+        deRhamTwo k (PrimeLocalRing (CoordinateRing k n) p.val) (orbitPrimeDifferentialBasis k n p)
+          (primeExteriorEquiv (CoordinateRing k n) k p.val (ω.val p)) = 0) ∧
+
+      -- Equality of actual sheaf sections: π*ω = -d tr(J g⁻¹dg)
+      kaehlerSectionPullback k (CoordinateRing k n) (GeneralLinearRing k n) (orbitCoordinateMap k n)
+        (maximalRankOpen k n) ⊤ (fun q _ => conjugationToSquareZero_mem_maximalRank k n q) ω =
+          StructureSheaf.toOpenₗ (GeneralLinearRing k n) (KaehlerTwoForms (GeneralLinearRing k n) k) ⊤
+            (-deRhamOne k (GeneralLinearRing k n) (generalLinearDeRhamBasis k n)
+              (maurerCartanPotential k n)) ∧
       (∀ p : maximalRankOpen k n, ∃ contraction :
           Derivation k (PrimeLocalRing (CoordinateRing k n) p.val) (PrimeLocalRing (CoordinateRing k n) p.val)
             ≃ₗ[PrimeLocalRing (CoordinateRing k n) p.val]
@@ -396,7 +419,8 @@ theorem orbit_global_symplectic_form (k n : Type u)
   refine ⟨⟨orbitExteriorSheafComparison k n⟩, primeTwoEvaluation_injective k n,
     orbitKaehlerTwoForm k n, permutationOpen_cover k n, orbitKaehlerTwoForm_evaluation k n,
     orbitKaehlerTwoForm_chart k n, (fun p e he => primeChartEvaluation_over k n p.val e he),
-    ?_, orbitKaehlerTwoForm_closed k n, ?_, cell_kaehler_form_pullback_zero k n⟩
+    ?_, orbitKaehlerTwoForm_closed k n, orbitKaehlerTwoForm_closed_by_descent k n,
+    orbitKaehlerPullback_eq_deRham k n, ?_, cell_kaehler_form_pullback_zero k n⟩
   · intro p
     rw [orbitKaehlerTwoForm_evaluation_point]
     exact orbitGlobalTwoForm_alternating k n p
