@@ -1332,6 +1332,183 @@ theorem cell_pullback_form_zero :
   rw [cellChartEval_T]
   exact canonicalTrace_one _
 
+abbrev CellRing := MvPolynomial (n × n) R
+
+/-- The coefficient action induced by the actual cell-to-chart morphism. -/
+abbrev cellChartAlgebra : Algebra (ChartRing R n) (CellRing R n) :=
+  (cellChartEval R n).toAlgebra
+
+attribute [local instance] cellChartAlgebra
+
+local instance cellChartScalarTower : IsScalarTower R (ChartRing R n) (CellRing R n) :=
+  IsScalarTower.of_algHom (cellChartEval R n)
+
+/-- The differential of the actual cell chart map, acting on relative derivations. -/
+def cellDifferential : Derivation R (CellRing R n) (CellRing R n) →ₗ[CellRing R n]
+    Derivation R (ChartRing R n) (CellRing R n) :=
+  Derivation.compAlgebraMapL R (ChartRing R n) (CellRing R n) (CellRing R n)
+
+@[simp] theorem cellDifferential_A (D : Derivation R (CellRing R n) (CellRing R n))
+    (i j : n) : cellDifferential R n D (chartA R n i j) = D (MvPolynomial.X (i, j)) := by
+  change D (cellChartEval R n (chartA R n i j)) = _
+  rw [show cellChartEval R n (chartA R n i j) = MvPolynomial.X (i, j) from
+    congrFun (congrFun (cellChartEval_A R n) i) j]
+
+@[simp] theorem cellDifferential_T (D : Derivation R (CellRing R n) (CellRing R n))
+    (i j : n) : cellDifferential R n D (chartT R n i j) = 0 := by
+  change D (cellChartEval R n (chartT R n i j)) = _
+  rw [show cellChartEval R n (chartT R n i j) = (1 : Matrix n n (CellRing R n)) i j from
+    congrFun (congrFun (cellChartEval_T R n) i) j]
+  simp [Matrix.one_apply, apply_ite]
+
+theorem cellDifferential_injective : Function.Injective (cellDifferential R n) := by
+  intro D E h
+  apply MvPolynomial.derivation_ext
+  rintro ⟨i, j⟩
+  simpa only [cellDifferential_A] using congrArg (fun d => d (chartA R n i j)) h
+
+/-- Relative tangent vectors along the cell are determined by the chart coordinates. -/
+theorem cellTangent_ext (D E : Derivation R (ChartRing R n) (CellRing R n))
+    (hA : ∀ i j, D (chartA R n i j) = E (chartA R n i j))
+    (hT : ∀ i j, D (chartT R n i j) = E (chartT R n i j)) : D = E := by
+  have hl : D.liftKaehlerDifferential = E.liftKaehlerDifferential := by
+    apply (localizedDifferentialBasis (R := R) (S := ChartRing R n)
+      (Submonoid.powers (chartDet R n))).ext
+    intro p
+    rw [localizedDifferentialBasis_apply, Derivation.liftKaehlerDifferential_comp_D,
+      Derivation.liftKaehlerDifferential_comp_D]
+    rcases p with ⟨i, j⟩ | ⟨i, j⟩
+    · exact hA i j
+    · exact hT i j
+  apply DFunLike.ext
+  intro a
+  simpa only [Derivation.liftKaehlerDifferential_comp_D] using
+    LinearMap.congr_fun hl (KaehlerDifferential.D R (ChartRing R n) a)
+
+/-- The tangent image of the cell is exactly `dT = 0`; the reverse inclusion
+constructs a derivation of the cell coordinate ring. -/
+theorem mem_range_cellDifferential (D : Derivation R (ChartRing R n) (CellRing R n)) :
+    D ∈ LinearMap.range (cellDifferential R n) ↔ ∀ i j, D (chartT R n i j) = 0 := by
+  constructor
+  · rintro ⟨E, rfl⟩ i j
+    exact cellDifferential_T R n E i j
+  · intro hT
+    refine ⟨MvPolynomial.mkDerivation R (fun ij : n × n => D (chartA R n ij.1 ij.2)), ?_⟩
+    apply cellTangent_ext R n
+    · intro i j
+      rw [cellDifferential_A, MvPolynomial.mkDerivation_X]
+    · intro i j
+      rw [cellDifferential_T, hT]
+
+def cellTangentEval (a : ChartRing R n) :
+    Derivation R (ChartRing R n) (CellRing R n) →ₗ[CellRing R n] CellRing R n where
+  toFun D := D a
+  map_add' _ _ := rfl
+  map_smul' _ _ := rfl
+
+@[simp] theorem cellTangentEval_apply (a : ChartRing R n)
+    (D : Derivation R (ChartRing R n) (CellRing R n)) : cellTangentEval R n a D = D a := rfl
+
+/-- The orbit's canonical form with coefficients restricted along `cellChartEval`.
+Its arguments remain derivations of the orbit chart, including normal directions. -/
+def cellOrbitForm : LinearMap.BilinForm (CellRing R n)
+    (Derivation R (ChartRing R n) (CellRing R n)) :=
+  ∑ i, ∑ j,
+    let F := (LinearMap.mul (CellRing R n) (CellRing R n)).compl₁₂
+      (cellTangentEval R n (chartT R n i j)) (cellTangentEval R n (chartA R n j i))
+    F - F.flip
+
+theorem cellOrbitForm_apply (D E : Derivation R (ChartRing R n) (CellRing R n)) :
+    cellOrbitForm R n D E = ∑ i, ∑ j,
+      (D (chartT R n i j) * E (chartA R n j i) -
+        E (chartT R n i j) * D (chartA R n j i)) := by
+  simp [cellOrbitForm]
+
+/-- Scalar restriction of an actual chart vector field along the cell. -/
+def specializeChartDerivation : Derivation R (ChartRing R n) (ChartRing R n) →ₗ[ChartRing R n]
+    Derivation R (ChartRing R n) (CellRing R n) :=
+  (Algebra.linearMap (ChartRing R n) (CellRing R n)).compDer
+
+@[simp] theorem specializeChartDerivation_apply
+    (D : Derivation R (ChartRing R n) (ChartRing R n)) (a : ChartRing R n) :
+    specializeChartDerivation R n D a = cellChartEval R n (D a) := rfl
+
+/-- Every tangent vector along the cell is obtained by scalar restriction of a chart vector field. -/
+theorem specializeChartDerivation_surjective : Function.Surjective (specializeChartDerivation R n) := by
+  intro D
+  let lift : CellRing R n → ChartRing R n := fun b => (cellChartEval_surjective R n b).choose
+  have lift_spec (b) : cellChartEval R n (lift b) = b := (cellChartEval_surjective R n b).choose_spec
+  let v : ((n × n) ⊕ (n × n)) → ChartRing R n := Sum.elim
+    (fun ij => lift (D (chartA R n ij.1 ij.2)))
+    (fun ij => lift (D (chartT R n ij.1 ij.2)))
+  refine ⟨coordinateDerivation (S := ChartRing R n) (Submonoid.powers (chartDet R n)) v, ?_⟩
+  apply cellTangent_ext R n
+  · intro i j
+    rw [specializeChartDerivation_apply]
+    have h := coordinateDerivation_coordinate (R := R) (S := ChartRing R n)
+      (Submonoid.powers (chartDet R n)) v (Sum.inl (i, j))
+    exact (congrArg (cellChartEval R n) h).trans (lift_spec _)
+  · intro i j
+    rw [specializeChartDerivation_apply]
+    have h := coordinateDerivation_coordinate (R := R) (S := ChartRing R n)
+      (Submonoid.powers (chartDet R n)) v (Sum.inr (i, j))
+    exact (congrArg (cellChartEval R n) h).trans (lift_spec _)
+
+/-- This is the dual of mathlib's map on Kähler differentials for `cellChartEval`. -/
+theorem cellDifferential_kaehler (D : Derivation R (CellRing R n) (CellRing R n)) :
+    (cellDifferential R n D).liftKaehlerDifferential =
+      (D.liftKaehlerDifferential.restrictScalars (ChartRing R n)).comp
+        (KaehlerDifferential.map R R (ChartRing R n) (CellRing R n)) := by
+  apply Derivation.liftKaehlerDifferential_unique
+  apply DFunLike.ext
+  intro a
+  change (cellDifferential R n D).liftKaehlerDifferential (KaehlerDifferential.D R (ChartRing R n) a) =
+    D.liftKaehlerDifferential
+      (KaehlerDifferential.map R R (ChartRing R n) (CellRing R n)
+        (KaehlerDifferential.D R (ChartRing R n) a))
+  rw [Derivation.liftKaehlerDifferential_comp_D, KaehlerDifferential.map_D,
+    Derivation.liftKaehlerDifferential_comp_D]
+  rfl
+
+/-- The restricted pairing is the scalar extension of the same canonical orbit form. -/
+theorem cellOrbitForm_specialize (D E : Derivation R (ChartRing R n) (ChartRing R n)) :
+    cellOrbitForm R n (specializeChartDerivation R n D) (specializeChartDerivation R n E) =
+      cellChartEval R n (localForm R n D E) := by
+  rw [cellOrbitForm_apply]
+  change (∑ i, ∑ j, (cellChartEval R n (D (chartT R n i j)) *
+      cellChartEval R n (E (chartA R n j i)) -
+        cellChartEval R n (E (chartT R n i j)) * cellChartEval R n (D (chartA R n j i)))) = _
+  simp [localForm, canonicalTrace, coordinateForm_apply, map_sum, map_sub, map_mul]
+
+theorem cellOrbitForm_partial (D : Derivation R (ChartRing R n) (CellRing R n)) (i j : n) :
+    cellOrbitForm R n
+      (cellDifferential R n (MvPolynomial.mkDerivation R
+        (fun p : n × n => if p = (j, i) then 1 else 0))) D = -D (chartT R n i j) := by
+  simp [cellOrbitForm_apply, cellDifferential_T, cellDifferential_A, MvPolynomial.mkDerivation_X,
+    Prod.mk.injEq, ite_and]
+
+/-- The image of the actual cell differential equals its symplectic orthogonal,
+over every commutative base ring. -/
+theorem cellDifferential_selfOrthogonal :
+    (cellOrbitForm R n).orthogonal (LinearMap.range (cellDifferential R n)) =
+      LinearMap.range (cellDifferential R n) := by
+  ext D
+  constructor
+  · intro h
+    apply (mem_range_cellDifferential R n D).mpr
+    intro i j
+    have hh := h (cellDifferential R n (MvPolynomial.mkDerivation R
+      (fun p : n × n => if p = (j, i) then 1 else 0))) ⟨_, rfl⟩
+    change cellOrbitForm R n _ D = 0 at hh
+    rw [cellOrbitForm_partial] at hh
+    exact neg_eq_zero.mp hh
+  · intro h E hE
+    have hD := (mem_range_cellDifferential R n D).mp h
+    have hE' := (mem_range_cellDifferential R n E).mp hE
+    change cellOrbitForm R n E D = 0
+    simp [cellOrbitForm_apply, hD, hE']
+
+
 end
 end GlobalSymplectic
 end Universality

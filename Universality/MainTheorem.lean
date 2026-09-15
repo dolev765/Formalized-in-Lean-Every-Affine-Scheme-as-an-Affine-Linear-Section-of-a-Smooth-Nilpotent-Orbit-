@@ -119,13 +119,32 @@ theorem affine_orbit_universality (k A : Type u)
               ((chartT k n).map (overlapChartMap k n e f f (overlapT_right_isUnit k n e f)))
               ((chartA k n).map (overlapChartMap k n e f f (overlapT_right_isUnit k n e f)))) ∧
 
-          -- 8. The cell lies in this atlas and has zero pullback form
+          -- 8. The cell lies in this atlas and its differential has Lagrangian image
           cellInclusion = Spec.map (CommRingCat.ofHom (cellChartEval k n).toRingHom) ≫
             (orbitChartToPermutationIso k n (Equiv.refl _) ≪≫ charts (Equiv.refl _)).inv ≫
               (orbitChartOpen k n (Equiv.refl _)).ι ∧
 
           canonicalTrace (R := k)
-            ((chartT k n).map (cellChartEval k n)) ((chartA k n).map (cellChartEval k n)) = 0 := by
+            ((chartT k n).map (cellChartEval k n)) ((chartA k n).map (cellChartEval k n)) = 0 ∧
+
+          letI := cellChartAlgebra k n
+          letI : IsScalarTower k (ChartRing k n) (CellRing k n) :=
+            IsScalarTower.of_algHom (cellChartEval k n)
+          Function.Injective (cellDifferential k n) ∧
+
+          (∀ D : Derivation k (CellRing k n) (CellRing k n),
+            (cellDifferential k n D).liftKaehlerDifferential =
+              (D.liftKaehlerDifferential.restrictScalars (ChartRing k n)).comp
+                (KaehlerDifferential.map k k (ChartRing k n) (CellRing k n))) ∧
+
+          Function.Surjective (specializeChartDerivation k n) ∧
+
+          (∀ D E : Derivation k (ChartRing k n) (ChartRing k n),
+            cellOrbitForm k n (specializeChartDerivation k n D) (specializeChartDerivation k n E) =
+              cellChartEval k n (form (Equiv.refl _) D E)) ∧
+
+          (cellOrbitForm k n).orthogonal (LinearMap.range (cellDifferential k n)) =
+            LinearMap.range (cellDifferential k n) := by
 
   -- Common witnesses for all eight parts
   obtain ⟨r⟩ := AffineOrbitRealization.nonempty k A
@@ -150,7 +169,15 @@ theorem affine_orbit_universality (k A : Type u)
       (fun e D => r.symplectic.alternating e D),
       (fun e D E F => r.symplectic.closed e D E F),
       r.symplectic.perfect_form, r.symplectic.compatible, r.cell_chart_factorization,
-      r.cell_isotropic⟩
+      r.cell_isotropic, ?_⟩
+    letI := cellChartAlgebra k r.Index
+    letI : IsScalarTower k (ChartRing k r.Index) (CellRing k r.Index) :=
+      IsScalarTower.of_algHom (cellChartEval k r.Index)
+    refine ⟨cellDifferential_injective k r.Index, cellDifferential_kaehler k r.Index,
+      specializeChartDerivation_surjective k r.Index, ?_, cellDifferential_selfOrthogonal k r.Index⟩
+    intro D E
+    rw [r.symplectic.local_formula]
+    exact cellOrbitForm_specialize k r.Index D E
 
 end
 end Universality
