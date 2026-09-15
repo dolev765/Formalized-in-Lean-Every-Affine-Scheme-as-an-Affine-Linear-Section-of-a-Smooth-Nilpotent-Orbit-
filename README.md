@@ -11,8 +11,8 @@ $$
 
 [Main theorem](Universality/MainTheorem.lean)
 · [Build in Lean (GitHub Codespaces)](https://codespaces.new/dolev765/Formalized-in-Lean-Every-Affine-Scheme-as-an-Affine-Linear-Section-of-a-Smooth-Nilpotent-Orbit-?quickstart=1)
-· [Lean build (GitHub Actions)](https://github.com/dolev765/Formalized-in-Lean-Every-Affine-Scheme-as-an-Affine-Linear-Section-of-a-Smooth-Nilpotent-Orbit-/actions/runs/34991209009/job/104456024886#step:3:1)
-· [Axiom audit](https://github.com/dolev765/Formalized-in-Lean-Every-Affine-Scheme-as-an-Affine-Linear-Section-of-a-Smooth-Nilpotent-Orbit-/actions/runs/34991208927/job/104456025204#step:4:1)
+· [Lean build (GitHub Actions)](https://github.com/dolev765/Formalized-in-Lean-Every-Affine-Scheme-as-an-Affine-Linear-Section-of-a-Smooth-Nilpotent-Orbit-/actions/runs/35010507614/job/104520970926#step:3:1)
+· [Axiom audit](https://github.com/dolev765/Formalized-in-Lean-Every-Affine-Scheme-as-an-Affine-Linear-Section-of-a-Smooth-Nilpotent-Orbit-/actions/runs/35010507619/job/104520971120#step:4:1)
 
 ```sh
 lake exe cache get
