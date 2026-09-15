@@ -30,7 +30,7 @@ $sources = if ($File) { @($File) } else {
   @('Universality/MatrixOrbit.lean', 'Universality/Circuit.lean',
     'Universality/Scheme.lean', 'Universality/Symplectic.lean',
     'Universality/Construction.lean', 'Universality/Main.lean',
-    'Universality/MainTheorem.lean', 'Universality.lean')
+    'Universality/MainTheorem.lean')
 }
 try {
   foreach ($source in $sources) {
