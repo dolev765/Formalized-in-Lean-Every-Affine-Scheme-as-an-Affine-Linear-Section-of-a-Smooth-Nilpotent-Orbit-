@@ -1,0 +1,44 @@
+name: Axiom audit
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  axioms:
+    name: Axiom audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+      - name: Prepare the compiled Lean environment
+        uses: leanprover/lean-action@v1
+        env:
+          LEAN_NUM_THREADS: "1"
+        with:
+          build: true
+          test: false
+          lint: false
+          use-mathlib-cache: true
+      - name: Audit the main theorem's axioms
+        shell: bash
+        run: |
+          set -o pipefail
+          lake env lean Universality/MainTheorem.lean | tee axiom-audit.txt
+      - name: Show Lean's axiom output
+        shell: bash
+        run: |
+          {
+            echo '```text'
+            cat axiom-audit.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Save axiom output
+        uses: actions/upload-artifact@v4
+        with:
+          name: axiom-audit
+          path: axiom-audit.txt

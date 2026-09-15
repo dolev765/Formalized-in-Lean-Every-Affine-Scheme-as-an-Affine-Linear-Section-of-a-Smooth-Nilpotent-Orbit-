@@ -1,4 +1,4 @@
-name: Lean verification
+name: Lean build
 
 on:
   push:
@@ -9,8 +9,8 @@ permissions:
   contents: read
 
 jobs:
-  check:
-    name: Build and verify
+  build:
+    name: Build
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -24,22 +24,3 @@ jobs:
           test: false
           lint: false
           use-mathlib-cache: true
-      - name: Check the main theorem and audit its axioms
-        shell: bash
-        run: |
-          set -o pipefail
-          lake env lean Universality/MainTheorem.lean | tee verified-statements.txt
-      - name: Publish the verification summary
-        shell: bash
-        run: |
-          {
-            echo '## Axioms'
-            echo '```text'
-            cat verified-statements.txt
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
-      - name: Save verification log
-        uses: actions/upload-artifact@v4
-        with:
-          name: lean-verification
-          path: verified-statements.txt
