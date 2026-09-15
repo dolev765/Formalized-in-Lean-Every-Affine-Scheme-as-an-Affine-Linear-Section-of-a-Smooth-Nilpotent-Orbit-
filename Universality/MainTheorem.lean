@@ -129,22 +129,19 @@ theorem affine_orbit_universality_explicit (k A : Type u)
 
   -- Common witnesses for all eight parts
   obtain ⟨r⟩ := affine_orbit_universality k A
-  refine ⟨GateSystem.Index r.Wire r.Gate, inferInstance, inferInstance,
-    GateSystem.OrbitAffineEquation r.Wire r.Gate r.Equation, inferInstance,
-    r.circuit.orbitAffinePolynomials, equationIdeal r.circuit.orbitPolynomials,
-    r.coordinateIso, r.circuit.sectionToAffine, r.circuit.sectionToOrbit,
-    r.circuit.sectionToCell, r.schemeIso, r.positive_size, r.affine_degree, ?_,
-    r.schemeIso_from_coordinate,
-    r.orbit_intersection.w.trans r.circuit.sectionToOrbit_ambient,
+  refine ⟨r.Index, inferInstance, inferInstance, r.Equation, inferInstance,
+    r.affineEquations, r.sectionIdeal,
+    r.coordinateIso, r.sectionToAffine, r.sectionToOrbit,
+    r.sectionToCell, r.schemeIso, r.positive_size, r.affine_degree, ?_,
+    r.schemeIso_from_coordinate, r.sectionToAmbient,
     r.affine_closed, maximalRankScheme_isImmersion k _,
-    r.orbit_intersection, r.cell_intersection, rfl,
+    r.orbit_intersection, r.cell_intersection, r.sectionToOrbit_eq,
     r.section_closed_in_orbit, r.section_closed_in_cell, r.cell_closed_in_orbit,
     (fun K _ _ M => inJordanOrbit_iff_square_zero_rank M),
     r.orbit_smooth_dimension, r.orbit_irreducible, r.cell_smooth_dimension, ?_⟩
 
   -- Exact ideal equality
-  · simpa only [squareZeroIdeal, genericMatrix, GateSystem.orbitMatrix] using
-      r.circuit.orbitSectionIdeal_eq
+  · simpa only [squareZeroIdeal, genericMatrix] using r.ideal_eq
 
   -- Symplectic atlas and Lagrangian cell
   · refine ⟨r.symplectic.chartIso, r.symplectic.overlapIso, r.symplectic.form,

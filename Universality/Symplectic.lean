@@ -1202,11 +1202,6 @@ structure AlgebraicSymplecticAtlas where
   form : ChartIndex n → LinearMap.BilinForm (ChartRing R n)
     (Derivation R (ChartRing R n) (ChartRing R n))
   local_formula : ∀ e, form e = canonicalTrace (chartT R n) (chartA R n)
-  alternating : ∀ e, (form e).IsAlt
-  closed : ∀ e, IsClosed (form e)
-  perfect : ∀ _e : ChartIndex n, Derivation R (ChartRing R n) (ChartRing R n) ≃ₗ[ChartRing R n]
-    Module.Dual (ChartRing R n) (Derivation R (ChartRing R n) (ChartRing R n))
-  perfect_form : ∀ e, (perfect e).toLinearMap = form e
   compatible : ∀ e f,
     canonicalTrace (R := R)
       ((chartT R n).map (overlapChartMap R n e f e (overlapT_left_isUnit R n e f)))
@@ -1220,6 +1215,26 @@ namespace AlgebraicSymplecticAtlas
 variable {R n} (ω : AlgebraicSymplecticAtlas R n)
 
 include ω
+
+/-- Alternatingness follows from the local formula. -/
+theorem alternating (e : ChartIndex n) : (ω.form e).IsAlt := by
+  rw [ω.local_formula]
+  exact canonicalTrace_alternating _ _
+
+/-- Closedness follows from the local formula. -/
+theorem closed (e : ChartIndex n) : IsClosed (ω.form e) := by
+  rw [ω.local_formula]
+  exact canonicalTrace_closed _ _
+
+/-- The canonical tangent-to-dual equivalence in each chart. -/
+def perfect (_ω : AlgebraicSymplecticAtlas R n) (_e : ChartIndex n) :
+    Derivation R (ChartRing R n) (ChartRing R n) ≃ₗ[ChartRing R n]
+      Module.Dual (ChartRing R n) (Derivation R (ChartRing R n) (ChartRing R n)) :=
+  localFormPerfect R n
+
+theorem perfect_form (e : ChartIndex n) : (ω.perfect e).toLinearMap = ω.form e := by
+  rw [ω.local_formula]
+  exact localFormPerfect_coe R n
 
 /-- The atlas covers the actual orbit scheme by actual scheme open immersions. -/
 def openCover : (maximalRankScheme R n).OpenCover :=
@@ -1304,10 +1319,6 @@ def orbitSymplecticAtlas : AlgebraicSymplecticAtlas R n where
   overlap_embedding := actualOverlapIso_ambient R n
   form _ := localForm R n
   local_formula _ := rfl
-  alternating _ := localForm_alternating R n
-  closed _ := localForm_closed R n
-  perfect _ := localFormPerfect R n
-  perfect_form _ := localFormPerfect_coe R n
   compatible := overlap_pullback_forms_compatible R n
 
 theorem maximalRankScheme_has_symplecticAtlas : Nonempty (AlgebraicSymplecticAtlas R n) :=

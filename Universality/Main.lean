@@ -1,158 +1,134 @@
 import Universality.Construction
 
 /-!
-# Exact affine-linear universality in the square-zero orbit
+# Affine-linear realizations of finitely presented algebras
 
-`affine_orbit_universality` is the main theorem. Its witness uses one circuit,
-one positive matrix size, and one
-section scheme throughout. The two intersection fields are categorical
-pullback certificates in `Scheme`, including nonreduced scheme structure.
-
-The symplectic certificate consists of regular alternating, closed, perfect
-forms on an actual open atlas, with compatibility on actual intersections.
-The cell's zero pullback is linked to that atlas by its displayed factorization.
+`AffineOrbitRealization` records equations and scheme maps independently of their construction.
+`affine_orbit_universality` constructs a realization over every commutative base ring.
 -/
 
 namespace Universality
-
 noncomputable section
-
 open CategoryTheory CategoryTheory.Limits AlgebraicGeometry MvPolynomial
-
+open SquareZeroGeometry
 universe u
 
-/-- A complete realization of `Spec A` as an affine-linear orbit section.
-All certificates concern the same compiler witness and therefore the same
-ambient matrix space, orbit, cell, and affine-linear closed subscheme. -/
+/-- An intrinsic affine-linear realization of an algebra in a square-zero orbit. -/
 structure AffineOrbitRealization (k A : Type u) [CommRing k] [CommRing A] [Algebra k A] where
-  Wire : Type u
-  Gate : Type u
+  Index : Type u
   Equation : Type u
-  [wireFinite : Fintype Wire]
-  [gateFinite : Fintype Gate]
+  [indexFinite : Fintype Index]
+  [indexDecidable : DecidableEq Index]
   [equationFinite : Fintype Equation]
-  [wireDecidable : DecidableEq Wire]
-  [gateDecidable : DecidableEq Gate]
-  circuit : GateSystem k Wire Gate Equation
-  positive_size : 0 < Fintype.card (GateSystem.Index Wire Gate)
-  coordinateIso : A ≃ₐ[k]
-    (MvPolynomial (GateSystem.OrbitCoord Wire Gate) k ⧸ equationIdeal circuit.orbitPolynomials)
-  schemeIso : Spec (.of A) ≅ Spec (.of
-    (MvPolynomial (GateSystem.OrbitCoord Wire Gate) k ⧸ equationIdeal circuit.orbitPolynomials))
-  schemeIso_from_coordinate :
-    schemeIso = Scheme.Spec.mapIso coordinateIso.symm.toRingEquiv.toCommRingCatIso.op
-  affine_degree : ∀ q, (circuit.orbitAffinePolynomials q).totalDegree ≤ 1
-  affine_closed : IsClosedImmersion circuit.affineInclusion
-  orbit_intersection : IsPullback circuit.sectionToAffine circuit.sectionToOrbit
-    circuit.affineInclusion
-    ((SquareZeroGeometry.maximalRankOpen k (GateSystem.Index Wire Gate)).ι ≫
-      SquareZeroGeometry.squareZeroClosedImmersion k (GateSystem.Index Wire Gate))
-  cell_intersection : IsPullback circuit.sectionToAffine circuit.sectionToCell
-    circuit.affineInclusion
-    (SquareZeroGeometry.cellMorphism k (GateSystem.Index Wire Gate) ≫
-      (SquareZeroGeometry.maximalRankOpen k (GateSystem.Index Wire Gate)).ι ≫
-        SquareZeroGeometry.squareZeroClosedImmersion k (GateSystem.Index Wire Gate))
-  section_closed_in_orbit : IsClosedImmersion circuit.sectionToOrbit
-  section_closed_in_cell : IsClosedImmersion circuit.sectionToCell
-  cell_closed_in_orbit :
-    IsClosedImmersion (SquareZeroGeometry.cellMorphism k (GateSystem.Index Wire Gate))
-  orbit_smooth_dimension : SmoothOfRelativeDimension
-    (2 * Fintype.card (GateSystem.Index Wire Gate) ^ 2)
-    (SquareZeroGeometry.maximalRankStructureMap k (GateSystem.Index Wire Gate))
-  orbit_irreducible : IsField k →
-    IrreducibleSpace (SquareZeroGeometry.maximalRankScheme k (GateSystem.Index Wire Gate))
-  cell_smooth_dimension : SmoothOfRelativeDimension
-    (Fintype.card (GateSystem.Index Wire Gate) ^ 2)
-    (Spec.map (CommRingCat.ofHom
-      (algebraMap k (MvPolynomial (GateSystem.Index Wire Gate × GateSystem.Index Wire Gate) k))))
-  symplectic : GlobalSymplectic.AlgebraicSymplecticAtlas k (GateSystem.Index Wire Gate)
-  cell_chart_factorization : SquareZeroGeometry.cellMorphism k (GateSystem.Index Wire Gate) =
-    Spec.map (CommRingCat.ofHom
-      (SquareZeroGeometry.cellChartEval k (GateSystem.Index Wire Gate)).toRingHom) ≫
-      (symplectic.orbitChartIso (Equiv.refl _)).inv ≫
-        (SquareZeroGeometry.orbitChartOpen k (GateSystem.Index Wire Gate) (Equiv.refl _)).ι
-  cell_isotropic : AffineForms.canonicalTrace (R := k)
-    ((SquareZeroGeometry.chartT k (GateSystem.Index Wire Gate)).map
-      (SquareZeroGeometry.cellChartEval k (GateSystem.Index Wire Gate)))
-    ((SquareZeroGeometry.chartA k (GateSystem.Index Wire Gate)).map
-      (SquareZeroGeometry.cellChartEval k (GateSystem.Index Wire Gate))) = 0
+  affineEquations : Equation → AmbientRing k Index
+  sectionIdeal : Ideal (AmbientRing k Index)
+  ideal_eq : sectionIdeal = equationIdeal affineEquations ⊔ squareZeroIdeal k Index
+  positive_size : 0 < Fintype.card Index
+  affine_degree : ∀ q, (affineEquations q).totalDegree ≤ 1
+  coordinateIso : A ≃ₐ[k] (AmbientRing k Index ⧸ sectionIdeal)
+  sectionToAffine : Spec (.of (AmbientRing k Index ⧸ sectionIdeal)) ⟶
+    Spec (.of (AmbientRing k Index ⧸ equationIdeal affineEquations))
+  sectionToOrbit : Spec (.of (AmbientRing k Index ⧸ sectionIdeal)) ⟶ maximalRankScheme k Index
+  sectionToCell : Spec (.of (AmbientRing k Index ⧸ sectionIdeal)) ⟶
+    Spec (.of (MvPolynomial (Index × Index) k))
+  orbit_intersection : IsPullback sectionToAffine sectionToOrbit
+    (Spec.map (CommRingCat.ofHom (Ideal.Quotient.mk (equationIdeal affineEquations))))
+    ((maximalRankOpen k Index).ι ≫ squareZeroClosedImmersion k Index)
+  cell_intersection : IsPullback sectionToAffine sectionToCell
+    (Spec.map (CommRingCat.ofHom (Ideal.Quotient.mk (equationIdeal affineEquations))))
+    (cellMorphism k Index ≫ (maximalRankOpen k Index).ι ≫ squareZeroClosedImmersion k Index)
+  sectionToOrbit_eq : sectionToOrbit = sectionToCell ≫ cellMorphism k Index
+  sectionToAmbient : sectionToAffine ≫
+    Spec.map (CommRingCat.ofHom (Ideal.Quotient.mk (equationIdeal affineEquations))) =
+      Spec.map (CommRingCat.ofHom (Ideal.Quotient.mk sectionIdeal))
 
-attribute [instance] AffineOrbitRealization.wireFinite AffineOrbitRealization.gateFinite
-  AffineOrbitRealization.equationFinite AffineOrbitRealization.wireDecidable
-  AffineOrbitRealization.gateDecidable
-
-/-- Every finitely presented affine `k`-scheme has an exact affine-linear realization:
-one positive-size smooth square-zero orbit, its closed affine Lagrangian cell,
-and an affine-linear closed subscheme whose two intersections are `Spec A`. -/
-theorem affine_orbit_universality (k A : Type u) [CommRing k] [CommRing A] [Algebra k A]
-    [Algebra.FinitePresentation k A] : Nonempty (AffineOrbitRealization k A) := by
-  obtain ⟨W, G, E, hW, hG, hE, dW, dG, C, hpos, ⟨e⟩⟩ :=
-    finitePresentation_orbitSection k A
-  exact ⟨{
-    Wire := W
-    Gate := G
-    Equation := E
-    wireFinite := hW
-    gateFinite := hG
-    equationFinite := hE
-    wireDecidable := dW
-    gateDecidable := dG
-    circuit := C
-    positive_size := hpos
-    coordinateIso := e
-    schemeIso := Scheme.Spec.mapIso e.symm.toRingEquiv.toCommRingCatIso.op
-    schemeIso_from_coordinate := rfl
-    affine_degree := by
-      cases subsingleton_or_nontrivial k with
-      | inl h =>
-        letI := h
-        intro q
-        rw [show C.orbitAffinePolynomials q = 0 from Subsingleton.elim _ _]
-        simp
-      | inr h =>
-        letI := h
-        exact C.orbitAffinePolynomials_totalDegree
-    affine_closed := IsClosedImmersion.spec_of_surjective
-      (CommRingCat.ofHom (Ideal.Quotient.mk (equationIdeal C.orbitAffinePolynomials)))
-      Ideal.Quotient.mk_surjective
-    orbit_intersection := C.sectionToOrbit_isPullback
-    cell_intersection := C.sectionToCell_isPullback
-    section_closed_in_orbit := C.sectionToOrbit_isClosedImmersion
-    section_closed_in_cell := C.sectionToCell_isClosedImmersion
-    cell_closed_in_orbit := SquareZeroGeometry.cellMorphism_isClosedImmersion k _
-    orbit_smooth_dimension := SquareZeroGeometry.maximalRankScheme_dimension k _
-    orbit_irreducible := fun h => by
-      letI := h.toField
-      exact SquareZeroGeometry.maximalRankScheme_irreducible _
-    cell_smooth_dimension := SquareZeroGeometry.cellSource_dimension k _
-    symplectic := GlobalSymplectic.orbitSymplecticAtlas k _
-    cell_chart_factorization :=
-      (GlobalSymplectic.orbitSymplecticAtlas k _).cellMorphism_factors_identity
-    cell_isotropic := GlobalSymplectic.cell_pullback_form_zero k _ }⟩
+attribute [instance] AffineOrbitRealization.indexFinite AffineOrbitRealization.indexDecidable
+  AffineOrbitRealization.equationFinite
 
 namespace AffineOrbitRealization
-
 variable {k A : Type u} [CommRing k] [CommRing A] [Algebra k A]
+variable (r : AffineOrbitRealization k A)
 
-/-- The integer `N` appearing in the statement. -/
-def size (r : AffineOrbitRealization k A) : ℕ :=
-  Fintype.card (GateSystem.Index r.Wire r.Gate)
+def size : ℕ := Fintype.card r.Index
+theorem size_pos : 0 < r.size := r.positive_size
 
-theorem size_pos (r : AffineOrbitRealization k A) : 0 < r.size := r.positive_size
+def ambient : Scheme := Spec (.of (AmbientRing k r.Index))
+def sectionScheme : Scheme := Spec (.of (AmbientRing k r.Index ⧸ r.sectionIdeal))
+def affineSection : Scheme := Spec (.of (AmbientRing k r.Index ⧸ equationIdeal r.affineEquations))
+def orbit : Scheme := maximalRankScheme k r.Index
+def cell : Scheme := Spec (.of (MvPolynomial (r.Index × r.Index) k))
 
-/-- The closed affine cell is literally affine space on `N²` matrix coordinates. -/
-def cell (r : AffineOrbitRealization k A) : Scheme :=
-  Spec (.of (MvPolynomial
-    (GateSystem.Index r.Wire r.Gate × GateSystem.Index r.Wire r.Gate) k))
+def affineInclusion : r.affineSection ⟶ r.ambient :=
+  Spec.map (CommRingCat.ofHom (Ideal.Quotient.mk (equationIdeal r.affineEquations)))
 
-def orbit (r : AffineOrbitRealization k A) : Scheme :=
-  SquareZeroGeometry.maximalRankScheme k (GateSystem.Index r.Wire r.Gate)
+/-- The scheme isomorphism is induced by the coordinate algebra isomorphism. -/
+def schemeIso : Spec (.of A) ≅ r.sectionScheme :=
+  Scheme.Spec.mapIso r.coordinateIso.symm.toRingEquiv.toCommRingCatIso.op
 
-def affineSection (r : AffineOrbitRealization k A) : Scheme :=
-  Spec (.of (MvPolynomial (GateSystem.OrbitCoord r.Wire r.Gate) k ⧸
-    equationIdeal r.circuit.orbitAffinePolynomials))
+@[simp] theorem schemeIso_from_coordinate : r.schemeIso =
+    Scheme.Spec.mapIso r.coordinateIso.symm.toRingEquiv.toCommRingCatIso.op := rfl
+
+theorem affine_closed : IsClosedImmersion r.affineInclusion :=
+  IsClosedImmersion.spec_of_surjective _ Ideal.Quotient.mk_surjective
+
+theorem section_closed_in_orbit : IsClosedImmersion r.sectionToOrbit :=
+  MorphismProperty.of_isPullback (P := @IsClosedImmersion) r.orbit_intersection r.affine_closed
+
+theorem section_closed_in_cell : IsClosedImmersion r.sectionToCell :=
+  MorphismProperty.of_isPullback (P := @IsClosedImmersion) r.cell_intersection r.affine_closed
+
+theorem cell_closed_in_orbit : IsClosedImmersion (cellMorphism k r.Index) :=
+  cellMorphism_isClosedImmersion k r.Index
+
+theorem orbit_smooth_dimension : SmoothOfRelativeDimension (2 * Fintype.card r.Index ^ 2)
+    (maximalRankStructureMap k r.Index) := maximalRankScheme_dimension k r.Index
+
+theorem orbit_irreducible (h : IsField k) : IrreducibleSpace r.orbit := by
+  letI := h.toField
+  exact maximalRankScheme_irreducible r.Index
+
+theorem cell_smooth_dimension : SmoothOfRelativeDimension (Fintype.card r.Index ^ 2)
+    (Spec.map (CommRingCat.ofHom (algebraMap k (MvPolynomial (r.Index × r.Index) k)))) :=
+  cellSource_dimension k r.Index
+
+def symplectic : GlobalSymplectic.AlgebraicSymplecticAtlas k r.Index :=
+  GlobalSymplectic.orbitSymplecticAtlas k r.Index
+
+theorem cell_chart_factorization : cellMorphism k r.Index =
+    Spec.map (CommRingCat.ofHom (cellChartEval k r.Index).toRingHom) ≫
+      (r.symplectic.orbitChartIso (Equiv.refl _)).inv ≫
+        (orbitChartOpen k r.Index (Equiv.refl _)).ι :=
+  r.symplectic.cellMorphism_factors_identity
+
+theorem cell_isotropic : AffineForms.canonicalTrace (R := k)
+    ((chartT k r.Index).map (cellChartEval k r.Index))
+    ((chartA k r.Index).map (cellChartEval k r.Index)) = 0 :=
+  GlobalSymplectic.cell_pullback_form_zero k r.Index
 
 end AffineOrbitRealization
+
+/-- Every finitely presented algebra admits an exact affine-linear orbit realization. -/
+theorem affine_orbit_universality (k A : Type u) [CommRing k] [CommRing A] [Algebra k A]
+    [Algebra.FinitePresentation k A] : Nonempty (AffineOrbitRealization k A) := by
+  obtain ⟨W, G, E, hW, hG, hE, dW, dG, C, hpos, ⟨e⟩⟩ := finitePresentation_orbitSection k A
+  exact ⟨{
+    Index := GateSystem.Index W G
+    Equation := GateSystem.OrbitAffineEquation W G E
+    affineEquations := C.orbitAffinePolynomials
+    sectionIdeal := equationIdeal C.orbitPolynomials
+    ideal_eq := by
+      simpa only [squareZeroIdeal, genericMatrix, GateSystem.orbitMatrix] using
+        C.orbitSectionIdeal_eq
+    positive_size := hpos
+    affine_degree := C.orbitAffinePolynomials_totalDegree
+    coordinateIso := e
+    sectionToAffine := C.sectionToAffine
+    sectionToOrbit := C.sectionToOrbit
+    sectionToCell := C.sectionToCell
+    orbit_intersection := C.sectionToOrbit_isPullback
+    cell_intersection := C.sectionToCell_isPullback
+    sectionToOrbit_eq := rfl
+    sectionToAmbient := C.sectionToOrbit_isPullback.w.trans C.sectionToOrbit_ambient }⟩
 
 end
 end Universality

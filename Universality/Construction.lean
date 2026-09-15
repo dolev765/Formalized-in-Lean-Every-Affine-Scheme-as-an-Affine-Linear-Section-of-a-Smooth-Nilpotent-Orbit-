@@ -878,8 +878,13 @@ theorem affineEquation_totalDegree_le {V : Type u} (e : AffineEquation R W)
 
 omit [Fintype G] in
 /-- Every advertised affine equation is a literal polynomial of total degree at most one. -/
-theorem orbitAffinePolynomials_totalDegree [Nontrivial R] (C : GateSystem R W G E)
+theorem orbitAffinePolynomials_totalDegree (C : GateSystem R W G E)
     (q : OrbitAffineEquation W G E) : (C.orbitAffinePolynomials q).totalDegree ≤ 1 := by
+  rcases subsingleton_or_nontrivial R with h | h
+  · letI := h
+    rw [show C.orbitAffinePolynomials q = 0 from Subsingleton.elim _ _]
+    simp
+  letI := h
   let A : Matrix (Index W G) (Index W G) (MvPolynomial (OrbitCoord W G) R) := (orbitExtract X).1
   let B : Matrix (Index W G) (Index W G) (MvPolynomial (OrbitCoord W G) R) := (orbitExtract X).2
   have hA (i j) : (A i j).totalDegree ≤ 1 := by

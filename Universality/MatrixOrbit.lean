@@ -1,4 +1,5 @@
 import Mathlib.Data.Matrix.Block
+import Mathlib.Algebra.Group.Conj
 import Mathlib.Data.Matrix.DualNumber
 import Mathlib.Algebra.CharP.Two
 import Mathlib.Tactic.NoncommRing
@@ -55,18 +56,33 @@ theorem chart_conjugation (A : Matrix n n R) :
     chartUnit A * jordanCell * chartUnitInv A = iota A (A * A) := by
   simp [chartUnit, jordanCell, chartUnitInv, iota, Matrix.fromBlocks_multiply]
 
-/-- Conjugacy expressed using a matrix and its two-sided inverse. -/
+/-- Conjugacy expressed using a matrix and its two-sided inverse.
+`inJordanOrbit_iff_isConj` identifies this explicit-witness interface with Mathlib's
+standard conjugacy relation. -/
 def InJordanOrbit (X : Matrix (n ⊕ n) (n ⊕ n) R) : Prop :=
   ∃ P Q : Matrix (n ⊕ n) (n ⊕ n) R, P * Q = 1 ∧ Q * P = 1 ∧
     X = P * jordanCell * Q
 
+/-- The explicit matrix witnesses are precisely the units in Mathlib's `IsConj`. -/
+theorem inJordanOrbit_iff_isConj (X : Matrix (n ⊕ n) (n ⊕ n) R) :
+    InJordanOrbit X ↔ IsConj jordanCell X := by
+  constructor
+  · rintro ⟨P, Q, hPQ, hQP, rfl⟩
+    refine ⟨⟨P, Q, hPQ, hQP⟩, ?_⟩
+    change P * jordanCell = (P * jordanCell * Q) * P
+    simp [mul_assoc, hQP]
+  · rintro ⟨u, hu⟩
+    refine ⟨u.val, u.inv, u.val_inv, u.inv_val, ?_⟩
+    have h := congrArg (fun M => M * u.inv) hu.eq
+    simpa [mul_assoc] using h.symm
+
 theorem orbit_square_zero {X : Matrix (n ⊕ n) (n ⊕ n) R}
     (h : InJordanOrbit X) : X * X = 0 := by
-  obtain ⟨P, Q, _, hQP, rfl⟩ := h
-  calc
-    P * jordanCell * Q * (P * jordanCell * Q) =
-        P * jordanCell * (Q * P) * jordanCell * Q := by noncomm_ring
-    _ = 0 := by simp [hQP, mul_assoc, jordanCell_square]
+  obtain ⟨u, hu⟩ := IsConj.pow 2 ((inJordanOrbit_iff_isConj X).mp h)
+  have hz : X * X * u.val = 0 := by
+    simpa [pow_two, jordanCell_square] using hu.eq.symm
+  have hc := congrArg (fun M => M * u.inv) hz
+  simpa [mul_assoc] using hc
 
 /-- Over every commutative coefficient ring, the chart-orbit intersection is
     exactly the graph of matrix squaring. -/
