@@ -215,12 +215,12 @@ theorem homogeneous_space_quotient (k n : Type u)
       (f : homogeneousCosets k n ⟶ F),
       ∃! g : yoneda.obj (maximalRankScheme k n) ⟶ F,
         homogeneousQuotientMap k n ≫ g = f) :=
-  ⟨(fun S _ g => mem_jordanStabilizer_iff n g),
+  ⟨(fun _ _ g => mem_jordanStabilizer_iff n g),
     (fun T => (generalLinearHomEquiv k n T).bijective),
     (fun T => ⟨homogeneousCosetsEquiv k n T⟩),
-    (fun T g => homogeneousCosetsEquiv_mk k n g), orbitProjection_ι k n,
-    (fun T g => homogeneousQuotientMap_mk k n g),
-    (fun T g => conjugation_coordinates k n g),
+    (fun _ g => homogeneousCosetsEquiv_mk k n g), orbitProjection_ι k n,
+    (fun _ g => homogeneousQuotientMap_mk k n g),
+    (fun _ g => conjugation_coordinates k n g),
     orbit_fppf_isSheaf k n, homogeneousQuotient_fppf_universal k n⟩
 
 end
