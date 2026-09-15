@@ -164,7 +164,7 @@ theorem affine_orbit_universality (k A : Type u)
 
   -- Symplectic atlas and Lagrangian cell
   · refine ⟨r.symplectic.chartIso, r.symplectic.overlapIso, r.symplectic.form,
-      r.symplectic.perfect, r.symplectic.covers, r.symplectic.chart_embedding,
+      (fun _ => localFormPerfect k r.Index), r.symplectic.covers, r.symplectic.chart_embedding,
       r.symplectic.overlap_embedding, r.symplectic.local_formula,
       (fun e D => r.symplectic.alternating e D),
       (fun e D E F => r.symplectic.closed e D E F),

@@ -950,13 +950,14 @@ noncomputable section
 universe u
 variable (R : Type u) [CommRing R] (n : Type u) [Fintype n] [DecidableEq n]
 
-abbrev ChartIndex := Equiv.Perm (n ⊕ n)
+abbrev ChartIndex : Type u := Equiv.Perm (n ⊕ n)
 
 def chartMinor (e : ChartIndex n) : CoordinateRing R n :=
   ((universalMatrix R n).submatrix e e).toBlocks₁₂.det
 
 /-- The coordinate algebra of the actual intersection of two principal orbit charts. -/
-abbrev OverlapRing (e f : ChartIndex n) := Localization.Away (chartMinor R n e * chartMinor R n f)
+abbrev OverlapRing (e f : ChartIndex n) : Type u :=
+  Localization.Away (chartMinor R n e * chartMinor R n f)
 
 def overlapMatrix (e f : ChartIndex n) : Matrix (n ⊕ n) (n ⊕ n) (OverlapRing R n e f) :=
   (universalMatrix R n).map (algebraMap (CoordinateRing R n) (OverlapRing R n e f))
@@ -1226,13 +1227,9 @@ theorem closed (e : ChartIndex n) : IsClosed (ω.form e) := by
   rw [ω.local_formula]
   exact canonicalTrace_closed _ _
 
-/-- The canonical tangent-to-dual equivalence in each chart. -/
-def perfect (_ω : AlgebraicSymplecticAtlas R n) (_e : ChartIndex n) :
-    Derivation R (ChartRing R n) (ChartRing R n) ≃ₗ[ChartRing R n]
-      Module.Dual (ChartRing R n) (Derivation R (ChartRing R n) (ChartRing R n)) :=
-  localFormPerfect R n
-
-theorem perfect_form (e : ChartIndex n) : (ω.perfect e).toLinearMap = ω.form e := by
+/-- The canonical tangent-to-dual equivalence induces the form on each chart. -/
+theorem perfect_form (e : ChartIndex n) :
+    (localFormPerfect R n).toLinearMap = ω.form e := by
   rw [ω.local_formula]
   exact localFormPerfect_coe R n
 
@@ -1332,7 +1329,7 @@ theorem cell_pullback_form_zero :
   rw [cellChartEval_T]
   exact canonicalTrace_one _
 
-abbrev CellRing := MvPolynomial (n × n) R
+abbrev CellRing : Type u := MvPolynomial (n × n) R
 
 /-- The coefficient action induced by the actual cell-to-chart morphism. -/
 abbrev cellChartAlgebra : Algebra (ChartRing R n) (CellRing R n) :=

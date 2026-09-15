@@ -24,3 +24,10 @@ jobs:
           test: false
           lint: false
           use-mathlib-cache: true
+      - name: Lint Lean declarations
+        shell: bash
+        run: |
+          lake env lean --stdin <<'LEAN'
+          import Universality.MainTheorem
+          #lint only unusedArguments defLemma checkType checkUnivs unusedHavesSuffices in Universality
+          LEAN

@@ -275,7 +275,7 @@ theorem universal_iota_square_ideal (n : Type u) [Fintype n] [DecidableEq n] :
   rw [iota_square_entryIdeal, universalMatrix_graphIdeal]
 
 /-- The pullback homomorphism of the affine-linear block embedding. -/
-def iotaCoordinateMap (n : Type u) [Fintype n] [DecidableEq n] :
+def iotaCoordinateMap (n : Type u) [DecidableEq n] :
     MvPolynomial ((n ⊕ n) × (n ⊕ n)) R →+*
       MvPolynomial ((n × n) ⊕ (n × n)) R :=
   eval₂Hom C (fun ij => iota (universalMatrixA n) (universalMatrixB n) ij.1 ij.2)
@@ -286,7 +286,7 @@ def iotaCoordinateSection (n : Type u) :
   eval₂Hom C (Sum.elim (fun ij => X (Sum.inl ij.1, Sum.inl ij.2))
     (fun ij => -X (Sum.inr ij.1, Sum.inl ij.2)))
 
-theorem iotaCoordinate_retraction (n : Type u) [Fintype n] [DecidableEq n] :
+theorem iotaCoordinate_retraction (n : Type u) [DecidableEq n] :
     (iotaCoordinateMap (R := R) n).comp (iotaCoordinateSection n) = RingHom.id _ := by
   apply MvPolynomial.ringHom_ext
   · intro r
@@ -295,13 +295,13 @@ theorem iotaCoordinate_retraction (n : Type u) [Fintype n] [DecidableEq n] :
     cases i <;> simp [iotaCoordinateMap, iotaCoordinateSection, iota,
       universalMatrixA, universalMatrixB]
 
-theorem iotaCoordinate_surjective (n : Type u) [Fintype n] [DecidableEq n] :
+theorem iotaCoordinate_surjective (n : Type u) [DecidableEq n] :
     Function.Surjective (iotaCoordinateMap (R := R) n) := by
   intro p
   exact ⟨iotaCoordinateSection n p, DFunLike.congr_fun (iotaCoordinate_retraction n) p⟩
 
 /-- The block chart is genuinely a closed immersion of affine schemes. -/
-theorem iota_isClosedImmersion (n : Type u) [Fintype n] [DecidableEq n] :
+theorem iota_isClosedImmersion (n : Type u) [DecidableEq n] :
     IsClosedImmersion (Spec.map (CommRingCat.ofHom (iotaCoordinateMap (R := R) n))) :=
   IsClosedImmersion.spec_of_surjective _ (iotaCoordinate_surjective n)
 
@@ -478,7 +478,7 @@ end ExpressionPresentation
 namespace SquareZeroGeometry
 variable (R) (n : Type u) [Fintype n] [DecidableEq n]
 
-abbrev AmbientRing := MvPolynomial ((n ⊕ n) × (n ⊕ n)) R
+abbrev AmbientRing : Type u := MvPolynomial ((n ⊕ n) × (n ⊕ n)) R
 
 def genericMatrix : Matrix (n ⊕ n) (n ⊕ n) (AmbientRing R n) :=
   fun i j => X (i, j)
@@ -486,7 +486,7 @@ def genericMatrix : Matrix (n ⊕ n) (n ⊕ n) (AmbientRing R n) :=
 def squareZeroIdeal : Ideal (AmbientRing R n) :=
   matrixEntryIdeal (genericMatrix R n * genericMatrix R n)
 
-abbrev CoordinateRing := AmbientRing R n ⧸ squareZeroIdeal R n
+abbrev CoordinateRing : Type u := AmbientRing R n ⧸ squareZeroIdeal R n
 
 /-- The genuine affine scheme defined by every entry of `Z²`. -/
 def squareZeroScheme : Scheme := Spec (.of (CoordinateRing R n))
@@ -520,11 +520,11 @@ def topRightChartLocalizationIso : (topRightOpen R n).toScheme ≅
     Spec (.of (Localization.Away (topRightDet R n))) := basicOpenIsoSpecAway _
 
 /-- Polynomial coordinates `(A,T)` for the proposed invertible-block chart. -/
-abbrev ChartPolynomialRing := MvPolynomial ((n × n) ⊕ (n × n)) R
+abbrev ChartPolynomialRing : Type u := MvPolynomial ((n × n) ⊕ (n × n)) R
 
 def chartDet : ChartPolynomialRing R n := (universalMatrixB (R := R) n).det
 
-abbrev ChartRing := Localization.Away (chartDet R n)
+abbrev ChartRing : Type u := Localization.Away (chartDet R n)
 
 instance chartRing_smooth : Algebra.Smooth R (ChartRing R n) := by
   letI : Algebra.Smooth R (ChartPolynomialRing R n) := ⟨inferInstance, inferInstance⟩
@@ -544,7 +544,7 @@ def awayLift {A S : Type*} [CommRing A] [CommRing S] [Algebra R A] [Algebra R S]
     awayLift R r φ h (algebraMap A (Localization.Away r) a) = φ a := by
   simp [awayLift]
 
-abbrev LocalCoordinateRing := Localization.Away (topRightDet R n)
+abbrev LocalCoordinateRing : Type u := Localization.Away (topRightDet R n)
 
 def localMatrix : Matrix (n ⊕ n) (n ⊕ n) (LocalCoordinateRing R n) :=
   (universalMatrix R n).map (algebraMap (CoordinateRing R n) (LocalCoordinateRing R n))
@@ -1618,8 +1618,10 @@ set_option backward.isDefEq.respectTransparency false
 universe u
 variable (R n : Type u) [CommRing R] [Fintype n] [DecidableEq n]
 
+/-! ### Conjugation and its local sections -/
+
 /-- Coordinate algebra of `GL(2n)` over the specified base. -/
-abbrev GeneralLinearRing := Localization.Away (genericMatrix R n).det
+abbrev GeneralLinearRing : Type u := Localization.Away (genericMatrix R n).det
 
 def generalLinearScheme : Scheme := Spec (.of (GeneralLinearRing R n))
 
@@ -1714,8 +1716,10 @@ theorem generalLinearEval_unit {S : Type u} [CommRing S] [Algebra R S]
 /-- A regular local section of conjugation on each explicit orbit chart. -/
 def chartConjugator (e : Equiv.Perm (n ⊕ n)) :
     (Matrix (n ⊕ n) (n ⊕ n) (ChartRing R n))ˣ where
-  val := (generalChartBasis (chartA R n) (Matrix.nonsingInvUnit _ (chartT_isUnit R n))).submatrix e.symm id
-  inv := (generalChartBasisInv (chartA R n) (Matrix.nonsingInvUnit _ (chartT_isUnit R n))).submatrix id e.symm
+  val := (generalChartBasis (chartA R n)
+    (Matrix.nonsingInvUnit _ (chartT_isUnit R n))).submatrix e.symm id
+  inv := (generalChartBasisInv (chartA R n)
+    (Matrix.nonsingInvUnit _ (chartT_isUnit R n))).submatrix id e.symm
   val_inv := by
     rw [← Matrix.submatrix_mul _ _ _ id _ Function.bijective_id,
       generalChartBasis_mul_inv]
@@ -1748,30 +1752,31 @@ theorem permutationChartEmbedding_matrix (e : Equiv.Perm (n ⊕ n)) :
   simp [universalMatrix, genericMatrix, permutationChartEmbedding, permuteCoordinate,
     permuteAmbient, toChartBase, chartAmbientEval]
 
-set_option maxHeartbeats 800000 in
+/-- Evaluating conjugation at a chart conjugator recovers the chart coordinates. -/
+theorem generalLinearEval_comp_orbitCoordinateMap (e : Equiv.Perm (n ⊕ n)) :
+    (generalLinearEval R n (chartConjugator R n e)).comp (orbitCoordinateMap R n) =
+      permutationChartEmbedding R n e := by
+  have h : ((universalMatrix R n).map (orbitCoordinateMap R n)).map
+      (generalLinearEval R n (chartConjugator R n e)) =
+      (universalMatrix R n).map (permutationChartEmbedding R n e) := by
+    rw [orbitCoordinateMap_matrix]
+    change (conjugateJordan n (generalLinearUnit R n)).map
+      (generalLinearEval R n (chartConjugator R n e)).toRingHom = _
+    rw [map_conjugateJordan, generalLinearEval_unit,
+      chartConjugator_conjugation, permutationChartEmbedding_matrix]
+  apply quotientAlgHom_ext
+  intro ij
+  exact congrArg (fun M => M ij.1 ij.2) h
+
 theorem chartSection_conjugation (e : Equiv.Perm (n ⊕ n)) :
     chartSection R n e ≫ conjugationToSquareZero R n =
       (permutationChartIso R n e).inv ≫ (permutationOpen R n e).ι := by
-  have he : (generalLinearEval R n (chartConjugator R n e)).comp
-      (orbitCoordinateMap R n) = permutationChartEmbedding R n e := by
-    apply quotientAlgHom_ext
-    intro ij
-    have hm := congrArg (fun M : Matrix (n ⊕ n) (n ⊕ n) (ChartRing R n) => M ij.1 ij.2)
-      (calc
-        ((universalMatrix R n).map (orbitCoordinateMap R n)).map
-            (generalLinearEval R n (chartConjugator R n e)) =
-            (universalMatrix R n).map (permutationChartEmbedding R n e) := by
-          rw [orbitCoordinateMap_matrix]
-          change (conjugateJordan n (generalLinearUnit R n)).map
-              (generalLinearEval R n (chartConjugator R n e)).toRingHom = _
-          rw [map_conjugateJordan, generalLinearEval_unit,
-            chartConjugator_conjugation, permutationChartEmbedding_matrix])
-    exact hm
   rw [permutationChartIso_inv_ι]
   change Spec.map _ ≫ Spec.map _ = Spec.map _
-  rw [← Spec.map_comp, ← CommRingCat.ofHom_comp]
-  exact congrArg (fun f : CoordinateRing R n →ₐ[R] ChartRing R n =>
-    Spec.map (CommRingCat.ofHom f.toRingHom)) he
+  rw [← Spec.map_comp]
+  apply congrArg Spec.map
+  apply CommRingCat.hom_ext
+  exact congrArg AlgHom.toRingHom (generalLinearEval_comp_orbitCoordinateMap R n e)
 
 theorem conjugationToSquareZero_mem_maximalRank (p : generalLinearScheme R n) :
     conjugationToSquareZero R n p ∈ maximalRankOpen R n := by
@@ -1786,7 +1791,8 @@ theorem conjugationToSquareZero_mem_maximalRank (p : generalLinearScheme R n) :
     p'.asIdeal
   intro hmem
   have hz := Ideal.algebraMap_residueField_eq_zero.mpr hmem
-  have hm : ((universalMatrix R n).map ((φ.comp (orbitCoordinateMap R n).toRingHom))).submatrix e e =
+  have hm : ((universalMatrix R n).map
+      (φ.comp (orbitCoordinateMap R n).toRingHom)).submatrix e e =
       (conjugateJordan n g).submatrix e e := by
     change (((universalMatrix R n).map (orbitCoordinateMap R n)).map φ).submatrix e e = _
     rw [orbitCoordinateMap_matrix, map_conjugateJordan]
@@ -1863,8 +1869,13 @@ theorem conjugationImage_sheafify :
 def conjugationSheafIso :
     ((conjugationImage R n).sheafify Scheme.zariskiTopology).toFunctor ≅
       yoneda.obj (maximalRankScheme R n) :=
-  eqToIso (congrArg Subfunctor.toFunctor (conjugationImage_sheafify R n)) ≪≫
+  { hom := Subfunctor.homOfLe (conjugationImage_sheafify R n).le
+    inv := Subfunctor.homOfLe (conjugationImage_sheafify R n).ge
+    hom_inv_id := by ext; rfl
+    inv_hom_id := by ext; rfl } ≪≫
     (asIso (Subfunctor.toRange (yoneda.map (maximalRankOpen R n).ι))).symm
+
+/-! ### Invertible matrices on arbitrary test schemes -/
 
 /-- Pullback of affine coordinates along a morphism from an arbitrary test scheme. -/
 def affineCoordinates {S : Type u} [CommRing S] {T : Scheme.{u}}
@@ -1968,6 +1979,8 @@ theorem conjugateJordan_eq_iff {S : Type*} [CommRing S]
   · intro he
     have hh := congrArg (fun M => g.val * M * h.inv) he
     simpa [conjugateJordan, mul_assoc] using hh.symm
+
+/-! ### The stabilizer and its cosets -/
 
 /-- The stabilizer as a subgroup of the actual general linear group. -/
 def jordanStabilizer (S : Type*) [CommRing S] :
@@ -2115,6 +2128,8 @@ instance cosetsToConjugationImage_isIso : IsIso (cosetsToConjugationImage R n) :
 def cosetImageIso : homogeneousCosets R n ≅ (conjugationImage R n).toFunctor :=
   asIso (cosetsToConjugationImage R n)
 
+/-! ### The represented sheaf quotient -/
+
 /-- The canonical quotient map into the functor represented by the geometric orbit. -/
 def homogeneousQuotientMap : homogeneousCosets R n ⟶ yoneda.obj (maximalRankScheme R n) :=
   (cosetImageIso R n).hom ≫
@@ -2130,12 +2145,7 @@ theorem conjugationSheafIso_ι :
     simp only [← Category.assoc, asIso_inv, IsIso.hom_inv_id, Category.id_comp]
     exact (Subfunctor.toRange_ι _).symm
   unfold conjugationSheafIso
-  simp only [Iso.trans_hom, Category.assoc, Iso.symm_hom, hι]
-  have hcast {G H : Subfunctor (yoneda.obj (squareZeroScheme R n))} (h : G = H) :
-      (eqToIso (congrArg Subfunctor.toFunctor h)).hom ≫ H.ι = G.ι := by
-    subst H
-    rfl
-  exact hcast (conjugationImage_sheafify R n)
+  simp only [Iso.trans_hom, Category.assoc, Iso.symm_hom, hι, Subfunctor.homOfLe_ι]
 
 /-- On every representative the quotient map is the actual conjugation morphism. -/
 theorem homogeneousQuotientMap_mk {T : Scheme.{u}} (f : T ⟶ generalLinearScheme R n) :
