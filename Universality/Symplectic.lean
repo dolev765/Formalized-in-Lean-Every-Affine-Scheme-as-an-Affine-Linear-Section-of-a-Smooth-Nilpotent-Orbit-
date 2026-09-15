@@ -18,15 +18,12 @@ import Mathlib.LinearAlgebra.BilinearForm.TensorProduct
 import Mathlib.AlgebraicGeometry.Modules.Tilde
 
 /-!
-# The trace form and closed algebraic forms on the orbit charts
+# The symplectic form on the square-zero orbit
 
-The KKS form is constructed on the image of `X ↦ XZ - ZX` over commutative rings.
-The lower-cell tangent subspaces are proved equal to their symplectic orthogonals.
-On localized polynomial chart algebras, the canonical form on algebraic derivations
-is closed under the standard Cartan exterior derivative and gives an equivalence
-with the module dual. Its KKS identification yields compatibility under constant
-changes of ambient basis. The final namespace assembles these forms on the actual
-scheme open cover, using the actual intersection algebras and restriction maps.
+The chart forms `tr(dT ∧ dA)` glue to a section of the exterior square of relative
+Kähler differentials. Contraction is invertible, the exterior derivative vanishes,
+and pullback along conjugation is `-d tr(J g⁻¹ dg)`. The affine cell has zero
+pullback and a self-orthogonal tangent image.
 -/
 
 namespace Universality
@@ -158,7 +155,7 @@ theorem omega_smul_right (Z : Matrix n n k) (a : k) (v w : Tangent Z) :
   rw [omega_swap Z v (a • w), omega_smul_left, omega_swap Z w v]
   simp
 
-/-- The trace pairing descends to an actual bilinear form on the commutator image. -/
+/-- The trace pairing descends to an bilinear form on the commutator image. -/
 noncomputable def omegaBilin (Z : Matrix n n k) : LinearMap.BilinForm k (Tangent Z) where
   toFun v :=
     { toFun := omega Z v
@@ -236,7 +233,7 @@ def conjugateLinear (g : (Matrix n n k)ˣ) : Matrix n n k ≃ₗ[k] Matrix n n k
   map_add' X Y := by simp [conjugate, mul_add, add_mul]
   map_smul' a X := by simp [conjugate]
 
-/-- Tangent spaces and their forms transport along actual matrix conjugation. -/
+/-- Tangent spaces and their forms transport along matrix conjugation. -/
 def tangentConjugate (g : (Matrix n n k)ˣ) (Z : Matrix n n k) :
     Tangent Z ≃ₗ[k] Tangent (conjugate g Z) where
   toFun v := ⟨conjugate g v.val, by
@@ -713,9 +710,7 @@ theorem chartGenerator_comm_compatible (D : Derivation R S S) (A B : Matrix n n 
   conv_lhs => rw [h, derivMatrix_conjugate D g _ hg hgi]
   conv_rhs => rw [h, Symplectic.conjugate_comm, chartGenerator_derivative]
 
-/-- Actual overlap compatibility: any constant change of ambient basis preserves
-the canonical chart forms. This applies in every overlap coefficient algebra,
-and follows from the proved derivative identity and KKS well-definedness. -/
+/-- Constant changes of ambient basis preserve the canonical chart forms. -/
 theorem canonicalTrace_conjugacy_compatible (A B : Matrix n n S)
     (T U : (Matrix n n S)ˣ) (g : (Matrix (n ⊕ n) (n ⊕ n) S)ˣ)
     (h : generalChart A (↑T : Matrix n n S) =
@@ -732,8 +727,7 @@ theorem canonicalTrace_conjugacy_compatible (A B : Matrix n n S)
     (chartGenerator_comm_compatible E A B T U g h (hg E).1 (hg E).2)]
   rw [h, Symplectic.traceForm_conjugate]
 
-/-- In particular, chart transition matrices defined over the base ring have
-proved compatibility, without an assumed constancy condition. -/
+/-- Changes of ambient basis defined over the base ring preserve the canonical chart forms. -/
 theorem canonicalTrace_baseChange_compatible (A B : Matrix n n S)
     (T U : (Matrix n n S)ˣ) (g : (Matrix (n ⊕ n) (n ⊕ n) R)ˣ)
     (h : generalChart A (↑T : Matrix n n S) =
@@ -803,7 +797,7 @@ variable (M : Submonoid (MvPolynomial I R)) [IsLocalization M S]
 
 noncomputable def coordinate (i : I) : S := algebraMap (MvPolynomial I R) S (MvPolynomial.X i)
 
-/-- Localizing polynomial coordinates preserves their actual Kähler basis. -/
+/-- Localizing polynomial coordinates preserves their Kähler basis. -/
 noncomputable def localizedDifferentialBasis : Module.Basis I S (KaehlerDifferential R S) :=
   (KaehlerDifferential.mvPolynomialBasis R I).ofIsLocalizedModule S M
     (KaehlerDifferential.map R R (MvPolynomial I R) S)
@@ -898,7 +892,7 @@ theorem canonicalTrace_localized_separatingLeft (D : Derivation R S S)
     rw [canonicalTrace_partialA] at hh
     simpa only [coordinateT, Derivation.zero_apply] using hh
 
-/-- The constructed closed form is nondegenerate on the actual derivation module
+/-- The constructed closed form is nondegenerate on the derivation module
 of any localization of the cotangent coordinate ring, including `det T ≠ 0`. -/
 theorem canonicalTrace_localized_nondegenerate :
     (canonicalTrace (R := R) (coordinateT (R := R) (S := S) (n := n))
@@ -930,7 +924,7 @@ theorem canonicalTrace_localized_surjective : Function.Surjective
     simp [coordinateA, v]
 
 /-- Perfectness over the localized coordinate ring: the closed canonical form
-gives an actual linear equivalence of vector fields with their module dual. -/
+gives an linear equivalence of vector fields with their module dual. -/
 noncomputable def canonicalTrace_localized_equiv :
     Derivation R S S ≃ₗ[S] Module.Dual S (Derivation R S S) :=
   LinearEquiv.ofBijective (canonicalTrace (R := R) (coordinateT (R := R) (S := S) (n := n))
@@ -961,7 +955,7 @@ abbrev ChartIndex : Type u := Equiv.Perm (n ⊕ n)
 def chartMinor (e : ChartIndex n) : CoordinateRing R n :=
   ((universalMatrix R n).submatrix e e).toBlocks₁₂.det
 
-/-- The coordinate algebra of the actual intersection of two principal orbit charts. -/
+/-- The coordinate algebra of the intersection of two principal orbit charts. -/
 abbrev OverlapRing (e f : ChartIndex n) : Type u :=
   Localization.Away (chartMinor R n e * chartMinor R n f)
 
@@ -1057,7 +1051,7 @@ def overlapLeftUnit (e f : ChartIndex n) : (Matrix n n (OverlapRing R n e f))ˣ 
 def overlapRightUnit (e f : ChartIndex n) : (Matrix n n (OverlapRing R n e f))ˣ :=
   Matrix.nonsingInvUnit (overlapT R n e f f) (overlapT_right_isUnit R n e f)
 
-/-- Equality of the actual canonical forms in the two coordinate systems on an overlap. -/
+/-- Equality of the canonical forms in the two coordinate systems on an overlap. -/
 theorem overlap_forms_compatible (e f : ChartIndex n) :
     canonicalTrace (R := R) (overlapT R n e f e) (overlapA R n e f e) =
       canonicalTrace (overlapT R n e f f) (overlapA R n e f f) := by
@@ -1070,7 +1064,7 @@ theorem overlap_forms_compatible (e f : ChartIndex n) :
   ext i j
   simp [Matrix.submatrix]
 
-/-- Compatibility is expressed through the actual coordinate homomorphisms
+/-- Compatibility is expressed through the coordinate homomorphisms
 from each chart algebra to the overlap algebra. -/
 theorem overlap_pullback_forms_compatible (e f : ChartIndex n) :
     canonicalTrace (R := R)
@@ -1102,7 +1096,7 @@ theorem overlapOpen_eq (e f : ChartIndex n) : overlapOpen R n e f =
     PrimeSpectrum.basicOpen (chartMinor R n e) ⊓ PrimeSpectrum.basicOpen (chartMinor R n f) :=
   PrimeSpectrum.basicOpen_mul _ _
 
-/-- The chosen overlap ring is the coordinate ring of the actual intersection open. -/
+/-- The chosen overlap ring is the coordinate ring of the intersection open. -/
 def overlapSchemeIso (e f : ChartIndex n) : (overlapOpen R n e f).toScheme ≅
     Spec (.of (OverlapRing R n e f)) := basicOpenIsoSpecAway _
 
@@ -1157,7 +1151,7 @@ theorem overlapChartMap_embedding (e f g : ChartIndex n)
   ext a
   simp
 
-/-- The actual overlap-to-chart morphism commutes with the ambient scheme maps. -/
+/-- The overlap-to-chart morphism commutes with the ambient scheme maps. -/
 theorem overlapScheme_map_commutes (e f g : ChartIndex n)
     (h : IsUnit (overlapT R n e f g).det) :
     Spec.map (CommRingCat.ofHom (overlapChartMap R n e f g h).toRingHom) ≫
@@ -1167,16 +1161,14 @@ theorem overlapScheme_map_commutes (e f g : ChartIndex n)
   exact congrArg (fun φ : CoordinateRing R n →ₐ[R] OverlapRing R n e f =>
     Spec.map (CommRingCat.ofHom φ.toRingHom)) (overlapChartMap_embedding R n e f g h)
 
-theorem overlapOpen_eq_permutation (e f : ChartIndex n) :
-    overlapOpen R n e f = permutationOpen R n e ⊓ permutationOpen R n f := overlapOpen_eq R n e f
-
-def actualOverlapIso (e f : ChartIndex n) :
+/-- Affine coordinates on the intersection of two orbit charts. -/
+def overlapChartIso (e f : ChartIndex n) :
     (permutationOpen R n e ⊓ permutationOpen R n f).toScheme ≅
       Spec (.of (OverlapRing R n e f)) :=
-  (squareZeroScheme R n).isoOfEq (overlapOpen_eq_permutation R n e f).symm ≪≫ overlapSchemeIso R n e f
+  (squareZeroScheme R n).isoOfEq (overlapOpen_eq R n e f).symm ≪≫ overlapSchemeIso R n e f
 
-theorem actualOverlapIso_ambient (e f : ChartIndex n) :
-    (actualOverlapIso R n e f).hom ≫
+theorem overlapChartIso_over (e f : ChartIndex n) :
+    (overlapChartIso R n e f).hom ≫
       Spec.map (CommRingCat.ofHom (algebraMap (CoordinateRing R n) (OverlapRing R n e f))) =
       (permutationOpen R n e ⊓ permutationOpen R n f).ι := by
   have hfac : (overlapSchemeIso R n e f).hom ≫
@@ -1186,16 +1178,13 @@ theorem actualOverlapIso_ambient (e f : ChartIndex n) :
           (PrimeSpectrum.basicOpen (chartMinor R n e * chartMinor R n f))) _ (by
             simp only [Scheme.Opens.range_ι]
             exact (PrimeSpectrum.localization_away_comap_range _ _).symm)
-  simpa only [actualOverlapIso, Iso.trans_hom, Category.assoc] using
+  simpa only [overlapChartIso, Iso.trans_hom, Category.assoc] using
     (congrArg (fun m => ((squareZeroScheme R n).isoOfEq
-      (overlapOpen_eq_permutation R n e f).symm).hom ≫ m) hfac).trans
+      (overlapOpen_eq R n e f).symm).hom ≫ m) hfac).trans
         (Scheme.isoOfEq_hom_ι _ _)
 
-/-- A compatible affine-chart definition of an algebraic symplectic form on
-the actual maximal-rank square-zero scheme. The coefficient algebras, actual
-open intersections, and concrete transition homomorphisms are part of the
-definition. No compatibility or nondegeneracy is assumed in its construction. -/
-structure AlgebraicSymplecticAtlas where
+/-- Orbit charts and their overlaps, equipped with the form `tr(dT ∧ dA)`. -/
+structure OrbitSymplecticAtlas where
   covers : (⨆ e, permutationOpen R n e) = maximalRankOpen R n
   chartIso : ∀ e : ChartIndex n,
     (permutationOpen R n e).toScheme ≅ Spec (.of (ChartRing R n))
@@ -1208,7 +1197,7 @@ structure AlgebraicSymplecticAtlas where
     (permutationOpen R n e ⊓ permutationOpen R n f).ι
   form : ChartIndex n → LinearMap.BilinForm (ChartRing R n)
     (Derivation R (ChartRing R n) (ChartRing R n))
-  local_formula : ∀ e, form e = canonicalTrace (chartT R n) (chartA R n)
+  form_eq : ∀ e, form e = canonicalTrace (chartT R n) (chartA R n)
   compatible : ∀ e f,
     canonicalTrace (R := R)
       ((chartT R n).map (overlapChartMap R n e f e (overlapT_left_isUnit R n e f)))
@@ -1217,29 +1206,29 @@ structure AlgebraicSymplecticAtlas where
       ((chartT R n).map (overlapChartMap R n e f f (overlapT_right_isUnit R n e f)))
       ((chartA R n).map (overlapChartMap R n e f f (overlapT_right_isUnit R n e f)))
 
-namespace AlgebraicSymplecticAtlas
+namespace OrbitSymplecticAtlas
 
-variable {R n} (ω : AlgebraicSymplecticAtlas R n)
+variable {R n} (ω : OrbitSymplecticAtlas R n)
 
 include ω
 
 /-- Alternatingness follows from the local formula. -/
 theorem alternating (e : ChartIndex n) : (ω.form e).IsAlt := by
-  rw [ω.local_formula]
+  rw [ω.form_eq]
   exact canonicalTrace_alternating _ _
 
 /-- Closedness follows from the local formula. -/
 theorem closed (e : ChartIndex n) : IsClosed (ω.form e) := by
-  rw [ω.local_formula]
+  rw [ω.form_eq]
   exact canonicalTrace_closed _ _
 
 /-- The canonical tangent-to-dual equivalence induces the form on each chart. -/
 theorem perfect_form (e : ChartIndex n) :
     (localFormPerfect R n).toLinearMap = ω.form e := by
-  rw [ω.local_formula]
+  rw [ω.form_eq]
   exact localFormPerfect_coe R n
 
-/-- The atlas covers the actual orbit scheme by actual scheme open immersions. -/
+/-- The atlas covers the orbit scheme by scheme open immersions. -/
 def openCover : (maximalRankScheme R n).OpenCover :=
   (maximalRankScheme R n).openCoverOfIsOpenCover (orbitChartOpen R n) (by
     exact ((maximalRankOpen R n).ι.preimage_iSup (permutationOpen R n)).symm.trans
@@ -1258,7 +1247,7 @@ theorem orbitChart_embedding (e : ChartIndex n) :
   exact (congrArg (fun m => (ω.chartIso e).inv ≫ m)
     (Scheme.Opens.isoOfLE_inv_ι (permutationOpen_le_maximalRank R n e))).trans (ω.chart_embedding e)
 
-/-- The actual affine-cell morphism factors through this atlas's identity chart
+/-- The affine-cell morphism factors through this atlas's identity chart
 using exactly the coordinate map whose pullback form vanishes. -/
 theorem cellMorphism_factors_identity : cellMorphism R n =
     Spec.map (CommRingCat.ofHom (cellChartEval R n).toRingHom) ≫
@@ -1278,7 +1267,7 @@ theorem cellMorphism_factors_identity : cellMorphism R n =
       ((squareZeroScheme R n).homOfLE_ι (topRightOpen_le_maximalRank R n))).trans
       (topRightChartIso_inv_ι R n))))
 
-/-- The left coordinate transition is the actual restriction along the open intersection. -/
+/-- The left coordinate transition is the restriction along the open intersection. -/
 theorem left_transition_is_restriction (e f : ChartIndex n) :
     (ω.overlapIso e f).hom ≫
       Spec.map (CommRingCat.ofHom (overlapChartMap R n e f e (overlapT_left_isUnit R n e f)).toRingHom) =
@@ -1293,7 +1282,7 @@ theorem left_transition_is_restriction (e f : ChartIndex n) :
         (overlapScheme_map_commutes R n e f e (overlapT_left_isUnit R n e f))
     _ = _ := by rw [ω.overlap_embedding]; simp
 
-/-- The right coordinate transition is the actual restriction along the open intersection. -/
+/-- The right coordinate transition is the restriction along the open intersection. -/
 theorem right_transition_is_restriction (e f : ChartIndex n) :
     (ω.overlapIso e f).hom ≫
       Spec.map (CommRingCat.ofHom (overlapChartMap R n e f f (overlapT_right_isUnit R n e f)).toRingHom) =
@@ -1308,26 +1297,25 @@ theorem right_transition_is_restriction (e f : ChartIndex n) :
         (overlapScheme_map_commutes R n e f f (overlapT_right_isUnit R n e f))
     _ = _ := by rw [ω.overlap_embedding]; simp
 
-end AlgebraicSymplecticAtlas
+end OrbitSymplecticAtlas
 
-/-- The global algebraic symplectic atlas on the actual orbit scheme.
-Every local and overlap obligation is discharged by the constructions above. -/
-def orbitSymplecticAtlas : AlgebraicSymplecticAtlas R n where
+/-- The symplectic atlas given by the invertible-minor charts. -/
+def orbitSymplecticAtlas : OrbitSymplecticAtlas R n where
   covers := permutationOpen_cover R n
   chartIso := permutationChartIso R n
   chart_embedding e := by
     simpa only [chartEmbeddingBase, permutationChartEmbedding] using
       permutationChartIso_inv_ι R n e
-  overlapIso := actualOverlapIso R n
-  overlap_embedding := actualOverlapIso_ambient R n
+  overlapIso := overlapChartIso R n
+  overlap_embedding := overlapChartIso_over R n
   form _ := localForm R n
-  local_formula _ := rfl
+  form_eq _ := rfl
   compatible := overlap_pullback_forms_compatible R n
 
-theorem maximalRankScheme_has_symplecticAtlas : Nonempty (AlgebraicSymplecticAtlas R n) :=
+theorem maximalRankScheme_has_symplecticAtlas : Nonempty (OrbitSymplecticAtlas R n) :=
   ⟨orbitSymplecticAtlas R n⟩
 
-/-- The regular symplectic form pulls back to zero along the actual affine-cell
+/-- The regular symplectic form pulls back to zero along the affine-cell
 morphism, whose coordinate homomorphism sends the cotangent coordinate `T` to `I`. -/
 theorem cell_pullback_form_zero :
     canonicalTrace (R := R) ((chartT R n).map (cellChartEval R n))
@@ -1337,7 +1325,7 @@ theorem cell_pullback_form_zero :
 
 abbrev CellRing : Type u := MvPolynomial (n × n) R
 
-/-- The coefficient action induced by the actual cell-to-chart morphism. -/
+/-- The coefficient action induced by the cell-to-chart morphism. -/
 abbrev cellChartAlgebra : Algebra (ChartRing R n) (CellRing R n) :=
   (cellChartEval R n).toAlgebra
 
@@ -1346,7 +1334,7 @@ attribute [local instance] cellChartAlgebra
 local instance cellChartScalarTower : IsScalarTower R (ChartRing R n) (CellRing R n) :=
   IsScalarTower.of_algHom (cellChartEval R n)
 
-/-- The differential of the actual cell chart map, acting on relative derivations. -/
+/-- The differential of the cell chart map, acting on relative derivations. -/
 def cellDifferential : Derivation R (CellRing R n) (CellRing R n) →ₗ[CellRing R n]
     Derivation R (ChartRing R n) (CellRing R n) :=
   Derivation.compAlgebraMapL R (ChartRing R n) (CellRing R n) (CellRing R n)
@@ -1427,7 +1415,7 @@ theorem cellOrbitForm_apply (D E : Derivation R (ChartRing R n) (CellRing R n)) 
         E (chartT R n i j) * D (chartA R n j i)) := by
   simp [cellOrbitForm]
 
-/-- Scalar restriction of an actual chart vector field along the cell. -/
+/-- Scalar restriction of an chart vector field along the cell. -/
 def specializeChartDerivation : Derivation R (ChartRing R n) (ChartRing R n) →ₗ[ChartRing R n]
     Derivation R (ChartRing R n) (CellRing R n) :=
   (Algebra.linearMap (ChartRing R n) (CellRing R n)).compDer
@@ -1490,7 +1478,7 @@ theorem cellOrbitForm_partial (D : Derivation R (ChartRing R n) (CellRing R n)) 
   simp [cellOrbitForm_apply, cellDifferential_T, cellDifferential_A, MvPolynomial.mkDerivation_X,
     Prod.mk.injEq, ite_and]
 
-/-- The image of the actual cell differential equals its symplectic orthogonal,
+/-- The image of the cell differential equals its symplectic orthogonal,
 over every commutative base ring. -/
 theorem cellDifferential_selfOrthogonal :
     (cellOrbitForm R n).orthogonal (LinearMap.range (cellDifferential R n)) =
@@ -1553,7 +1541,7 @@ theorem rightMaurerCartan_eq_conjugate (g : (Matrix n n S)ˣ) (D : Derivation R 
     rightMaurerCartan g D = Symplectic.conjugate g (maurerCartan g D) := by
   simp [rightMaurerCartan, Symplectic.conjugate, maurerCartan, ← mul_assoc]
 
-/-- Differentiating actual conjugation gives the commutator tangent map. -/
+/-- Differentiating conjugation gives the commutator tangent map. -/
 theorem conjugation_derivative (g : (Matrix n n S)ˣ) (J : Matrix n n S)
     (D : Derivation R S S) (hJ : derivMatrix D J = 0) :
     derivMatrix D (Symplectic.conjugate g J) =
@@ -1581,7 +1569,7 @@ theorem derivation_trace (D : Derivation R S S) (M : Matrix n n S) :
 def maurerCartanTrace (g : (Matrix n n S)ˣ) (J : Matrix n n S) (D : Derivation R S S) : S :=
   Matrix.trace (J * maurerCartan g D)
 
-/-- `π*ω = -d tr(J g⁻¹dg)`, with the actual conjugation derivative and KKS pairing. -/
+/-- `π*ω = -d tr(J g⁻¹dg)`, with the conjugation derivative and KKS pairing. -/
 theorem conjugation_KKS_exact (g : (Matrix n n S)ˣ) (J : Matrix n n S)
     (D E : Derivation R S S) (hDJ : derivMatrix D J = 0) (hEJ : derivMatrix E J = 0) :
     Symplectic.traceForm (Symplectic.conjugate g J)
@@ -1675,7 +1663,7 @@ theorem derivMatrix_jordanCell {S : Type u} [CommRing S] [Algebra R S]
     (D : Derivation R S S) : derivMatrix D (jordanCell : Matrix (n ⊕ n) (n ⊕ n) S) = 0 := by
   ext (i | i) (j | j) <;> simp [jordanCell, derivMatrix, Matrix.one_apply, apply_ite]
 
-/-- The computed derivative is that of the coordinate map defining the actual quotient morphism. -/
+/-- The computed derivative is that of the coordinate map defining the quotient morphism. -/
 theorem orbitProjection_derivative (D : Derivation R (GeneralLinearRing R n) (GeneralLinearRing R n)) :
     derivMatrix D ((universalMatrix R n).map (orbitCoordinateMap R n)) =
       Symplectic.comm (rightMaurerCartan (generalLinearUnit R n) D)
@@ -1718,7 +1706,7 @@ theorem chartTangentProjection_T (X : Matrix (n ⊕ n) (n ⊕ n) (ChartRing R n)
   ext i j
   exact coordinateDerivation_coordinate _ _ (Sum.inr (i, j))
 
-/-- The local tangent map sends an ambient matrix `X` to the actual derivative `[X,Z]`. -/
+/-- The local tangent map sends an ambient matrix `X` to the derivative `[X,Z]`. -/
 theorem chartTangentProjection_derivative (X : Matrix (n ⊕ n) (n ⊕ n) (ChartRing R n)) :
     derivMatrix (chartTangentProjectionFun R n X) (generalChart (chartA R n) (chartT R n)) =
       Symplectic.comm X (generalChart (chartA R n) (chartT R n)) := by
@@ -1749,7 +1737,7 @@ open AffineForms SquareZeroGeometry
 universe u
 variable (R n : Type u) [CommRing R] [Fintype n] [DecidableEq n]
 
-/-- The commutator map into the actual module of algebraic vector fields on an orbit chart. -/
+/-- The commutator map into the module of algebraic vector fields on an orbit chart. -/
 def chartTangentProjection :
     Matrix (n ⊕ n) (n ⊕ n) (ChartRing R n) →ₗ[ChartRing R n]
       Derivation R (ChartRing R n) (ChartRing R n) where
@@ -1826,7 +1814,7 @@ def principalToPrimeAlg (f : A) (p : PrimeSpectrum A) (hf : p ∈ PrimeSpectrum.
   __ := principalToPrime A f p hf
   commutes' := principalToPrime_algebraMap A f p hf
 
-/-- A two-form germ is a bilinear form on derivations of the actual prime localization. -/
+/-- A two-form germ is a bilinear form on derivations of the prime localization. -/
 abbrev TwoFormGerm (p : PrimeSpectrum A) : Type u :=
   LinearMap.BilinForm (PrimeLocalRing A p) (Derivation R (PrimeLocalRing A p) (PrimeLocalRing A p))
 
@@ -2025,7 +2013,7 @@ theorem primeChartEvaluation_T (p : PrimeSpectrum (CoordinateRing R n)) (e : Equ
       coefficientT R n (PrimeLocalRing (CoordinateRing R n) p) e :=
   congrArg Units.val (chartEval_T R n _ _)
 
-/-- The chart-to-germ homomorphism is over the actual square-zero coordinate ring. -/
+/-- The chart-to-germ homomorphism is over the square-zero coordinate ring. -/
 theorem primeChartEvaluation_over (p : PrimeSpectrum (CoordinateRing R n)) (e : Equiv.Perm (n ⊕ n))
     (he : p ∈ permutationOpen R n e) :
     (primeChartEvaluation R n p e he).comp (permutationChartEmbedding R n e) =
@@ -2048,7 +2036,7 @@ theorem primeChartEvaluation_over (p : PrimeSpectrum (CoordinateRing R n)) (e : 
   intro ij
   exact congrFun (congrFun hm ij.1) ij.2
 
-/-- The global sheaf section restricts to the same concrete form as the verified symplectic atlas. -/
+/-- The global sheaf section restricts to the chart form of the symplectic atlas. -/
 theorem orbitGlobalTwoForm_atlas (p : maximalRankOpen R n) (e : Equiv.Perm (n ⊕ n))
     (he : p.val ∈ permutationOpen R n e) :
     (orbitGlobalTwoForm R n).val p =
@@ -2653,7 +2641,7 @@ def exteriorTwoFromBaseChange : S ⊗[A] (⋀[A]^2 M) →ₗ[S] ⋀[S]^2 (S ⊗[
   simp [exteriorTwoFromBaseChange, baseChangeWedgeAlternating]
   congr 1
 
-theorem exteriorTwoToFromBaseChange :
+theorem exteriorTwoToBaseChange_fromBaseChange :
     (exteriorTwoToBaseChange A S (M := M)).comp (exteriorTwoFromBaseChange A S) = LinearMap.id := by
   apply LinearMap.restrictScalars_injective A
   apply TensorProduct.ext
@@ -2668,7 +2656,7 @@ theorem exteriorTwoToFromBaseChange :
   rw [hv]
   simp [TensorProduct.smul_tmul']
 
-theorem exteriorTwoFromToBaseChange :
+theorem exteriorTwoFromBaseChange_toBaseChange :
     (exteriorTwoFromBaseChange A S (M := M)).comp (exteriorTwoToBaseChange A S) = LinearMap.id := by
   apply exteriorPower.linearMap_ext
   apply AlternatingMap.ext
@@ -2711,8 +2699,8 @@ theorem exteriorTwoFromToBaseChange :
 def exteriorTwoBaseChangeEquiv : S ⊗[A] (⋀[A]^2 M) ≃ₗ[S] ⋀[S]^2 (S ⊗[A] M) :=
   { exteriorTwoFromBaseChange A S with
     invFun := exteriorTwoToBaseChange A S
-    left_inv := fun w => LinearMap.congr_fun (exteriorTwoToFromBaseChange A S) w
-    right_inv := fun w => LinearMap.congr_fun (exteriorTwoFromToBaseChange A S) w }
+    left_inv := fun w => LinearMap.congr_fun (exteriorTwoToBaseChange_fromBaseChange A S) w
+    right_inv := fun w => LinearMap.congr_fun (exteriorTwoFromBaseChange_toBaseChange A S) w }
 
 def exteriorCongr (d : ℕ) (e : M ≃ₗ[A] N) : (⋀[A]^d M) ≃ₗ[A] (⋀[A]^d N) :=
   { exteriorPower.map d e.toLinearMap with
@@ -2873,38 +2861,42 @@ end KaehlerEvaluation
 section Expressions
 variable (R : Type u) [CommRing R] [Algebra R A]
 
-theorem kaehlerTwo_span :
-    Submodule.span A (Set.range (fun ab : A × A => exteriorPower.ιMulti A 2
-      ![KaehlerDifferential.D R A ab.1, KaehlerDifferential.D R A ab.2])) = ⊤ := by
-  have h := exteriorPower.ιMulti_span_of_span A 2 (KaehlerDifferential R A)
-    (KaehlerDifferential.span_range_derivation R A)
-  rw [← top_le_iff] at h ⊢
-  apply h.trans
-  apply Submodule.span_mono
-  rintro _ ⟨v, hv, rfl⟩
-  obtain ⟨a, ha⟩ := hv (Set.mem_range_self 0)
-  obtain ⟨b, hb⟩ := hv (Set.mem_range_self 1)
-  refine ⟨(a, b), congrArg (exteriorPower.ιMulti A 2) ?_⟩
-  ext i
-  fin_cases i <;> assumption
+theorem kaehlerDegree_expression (R A : Type u) [CommRing R] [CommRing A] [Algebra R A]
+    (d : ℕ) (w : ⋀[A]^d (KaehlerDifferential R A)) :
+    ∃ (J : Type u) (_ : Fintype J) (c : J → A) (a : J → Fin d → A),
+      w = ∑ i, c i • exteriorPower.ιMulti A d (fun j => KaehlerDifferential.D R A (a i j)) := by
+  classical
+  have hs : Submodule.span A (Set.range (fun a : Fin d → A =>
+      exteriorPower.ιMulti A d (fun j => KaehlerDifferential.D R A (a j)))) = ⊤ := by
+    have h := exteriorPower.ιMulti_span_of_span A d (KaehlerDifferential R A)
+      (KaehlerDifferential.span_range_derivation R A)
+    rw [← top_le_iff] at h ⊢
+    apply h.trans
+    apply Submodule.span_mono
+    rintro _ ⟨v, hv, rfl⟩
+    have h : ∀ i, ∃ a, KaehlerDifferential.D R A a = v i := fun i => hv (Set.mem_range_self i)
+    choose a ha using h
+    exact ⟨a, congrArg (exteriorPower.ιMulti A d) (funext ha)⟩
+  have hw : w ∈ Submodule.span A (Set.range (fun a : Fin d → A =>
+      exteriorPower.ιMulti A d (fun j => KaehlerDifferential.D R A (a j)))) := by rw [hs]; trivial
+  obtain ⟨l, hl⟩ := Finsupp.mem_span_range_iff_exists_finsupp.mp hw
+  refine ⟨l.support, inferInstance, (fun i => l i), (fun i => i.val), ?_⟩
+  change w = ∑ i ∈ l.support.attach, l i.val • exteriorPower.ιMulti A d
+    (fun j => KaehlerDifferential.D R A (i.val j))
+  exact hl.symm.trans (Finset.sum_attach l.support (fun a : Fin d → A =>
+    l a • exteriorPower.ιMulti A d (fun j => KaehlerDifferential.D R A (a j)))).symm
 
-set_option maxHeartbeats 800000 in
 theorem kaehlerTwo_expression (w : KaehlerTwoForms A R) :
     ∃ (I : Type u) (_ : Fintype I) (c a b : I → A),
       w = ∑ i, c i • exteriorPower.ιMulti A 2
         ![KaehlerDifferential.D R A (a i), KaehlerDifferential.D R A (b i)] := by
-  classical
-  have hw : w ∈ Submodule.span A (Set.range (fun ab : A × A => exteriorPower.ιMulti A 2
-      ![KaehlerDifferential.D R A ab.1, KaehlerDifferential.D R A ab.2])) := by
-    rw [kaehlerTwo_span A R]
-    trivial
-  obtain ⟨l, hl⟩ := Finsupp.mem_span_range_iff_exists_finsupp.mp hw
-  refine ⟨l.support, inferInstance, (fun i => l i), (fun i => i.val.1), (fun i => i.val.2), ?_⟩
-  change w = ∑ i ∈ l.support.attach, l i.val • exteriorPower.ιMulti A 2
-    ![KaehlerDifferential.D R A i.val.1, KaehlerDifferential.D R A i.val.2]
-  exact hl.symm.trans (Finset.sum_attach l.support (fun i : A × A =>
-    l i • exteriorPower.ιMulti A 2
-      ![KaehlerDifferential.D R A i.1, KaehlerDifferential.D R A i.2])).symm
+  obtain ⟨I, hI, c, a, rfl⟩ := kaehlerDegree_expression R A 2 w
+  refine ⟨I, hI, c, (fun i => a i 0), (fun i => a i 1), ?_⟩
+  apply Finset.sum_congr rfl
+  intro i _
+  congr 2
+  ext j
+  fin_cases j <;> rfl
 
 end Expressions
 
@@ -3281,7 +3273,7 @@ theorem orbitKaehlerTwoForm_chart (p : maximalRankOpen R n)
   rw [kaehlerCanonicalTrace_evaluation]
   exact (orbitKaehlerTwoForm_evaluation_point R n p).trans (orbitGlobalTwoForm_atlas R n p e he)
 
-theorem orbitKaehlerTwoForm_closed (p : maximalRankOpen R n) :
+theorem orbitKaehlerTwoForm_isClosed (p : maximalRankOpen R n) :
     IsClosed (exteriorGermEvaluation (CoordinateRing R n) R p.val ((orbitKaehlerTwoForm R n).val p)) := by
   rw [orbitKaehlerTwoForm_evaluation_point]
   exact orbitGlobalTwoForm_closed R n p
@@ -3292,7 +3284,7 @@ theorem orbitKaehlerTwoForm_perfect (p : maximalRankOpen R n) :
   rw [orbitKaehlerTwoForm_evaluation_point]
   exact orbitGlobalTwoForm_perfect R n p
 
-theorem cell_kaehler_form_pullback_zero :
+theorem kaehlerCanonicalTrace_cell_pullback :
     letI := cellChartAlgebra R n
     letI := IsScalarTower.of_algHom (cellChartEval R n)
     kaehlerExteriorMap (ChartRing R n) (CellRing R n) R
@@ -3421,7 +3413,7 @@ theorem commutatorFirstOrderMap_fst (X : Matrix (n ⊕ n) (n ⊕ n) S) (a : Coor
       (squareZeroEvaluation_matrix R n (DualNumber S) _ (commutatorFirstOrder_square R n S X) i j)
   exact DFunLike.congr_fun h a
 
-/-- The infinitesimal conjugation action on the actual square-zero coordinate algebra. -/
+/-- The infinitesimal conjugation action on the square-zero coordinate algebra. -/
 def commutatorDerivation (X : Matrix (n ⊕ n) (n ⊕ n) S) :
     Derivation R (CoordinateRing R n) S where
   toFun a := (commutatorFirstOrderMap R n S X a).snd
@@ -3750,6 +3742,7 @@ local instance (d : ℕ) [Algebra A B] : Module A (⋀[B]^d (KaehlerDifferential
 local instance (d : ℕ) [Algebra A B] : IsScalarTower A B (⋀[B]^d (KaehlerDifferential R B)) :=
   IsScalarTower.of_algebraMap_smul fun _ _ => rfl
 
+/-- Pullback of relative Kähler forms in degree `d`. -/
 def kaehlerDegreeMap (f : A →ₐ[R] B) (d : ℕ) :
     (⋀[A]^d (KaehlerDifferential R A)) →ₛₗ[f.toRingHom] (⋀[B]^d (KaehlerDifferential R B)) := by
   letI := f.toAlgebra
@@ -3776,10 +3769,22 @@ theorem kaehlerDegreeMap_D_wedge (f : A →ₐ[R] B) (d : ℕ) (a : Fin d → A)
 
 end Pullback
 
-/-- Pullback of the actual exterior square along an algebra homomorphism. -/
+theorem kaehlerDegreeMap_comp (R A B C : Type u)
+    [CommRing R] [CommRing A] [CommRing B] [CommRing C]
+    [Algebra R A] [Algebra R B] [Algebra R C]
+    (f : A →ₐ[R] B) (g : B →ₐ[R] C) (d : ℕ) (w : ⋀[A]^d (KaehlerDifferential R A)) :
+    kaehlerDegreeMap R B C g d (kaehlerDegreeMap R A B f d w) =
+      kaehlerDegreeMap R A C (g.comp f) d w := by
+  obtain ⟨J, hJ, c, a, rfl⟩ := kaehlerDegree_expression R A d w
+  simp only [map_sum, map_smulₛₗ, kaehlerDegreeMap_D_wedge]
+  rfl
+
+/-- Pullback of the exterior square along an algebra homomorphism. -/
 def kaehlerTwoMap (f : A →ₐ[R] B) : KaehlerTwoForms A R →ₛₗ[f.toRingHom] KaehlerTwoForms B R :=
   kaehlerDegreeMap R A B f 2
 
+theorem kaehlerDegreeMap_two (f : A →ₐ[R] B) (w : KaehlerTwoForms A R) :
+    kaehlerDegreeMap R A B f 2 w = kaehlerTwoMap R A B f w := rfl
 @[simp] theorem kaehlerTwoMap_D_wedge (f : A →ₐ[R] B) (a b : A) :
     kaehlerTwoMap R A B f (exteriorPower.ιMulti A 2 ![KaehlerDifferential.D R A a, KaehlerDifferential.D R A b]) =
       exteriorPower.ιMulti B 2 ![KaehlerDifferential.D R B (f a), KaehlerDifferential.D R B (f b)] := by
@@ -3787,15 +3792,8 @@ def kaehlerTwoMap (f : A →ₐ[R] B) : KaehlerTwoForms A R →ₛₗ[f.toRingHo
 
 theorem kaehlerTwoMap_comp (C : Type u) [CommRing C] [Algebra R C]
     (f : A →ₐ[R] B) (g : B →ₐ[R] C) (w : KaehlerTwoForms A R) :
-    kaehlerTwoMap R B C g (kaehlerTwoMap R A B f w) = kaehlerTwoMap R A C (g.comp f) w := by
-  obtain ⟨I, hI, c, a, b, rfl⟩ := kaehlerTwo_expression A R w
-  simp only [map_sum, map_smulₛₗ]
-  apply Finset.sum_congr rfl
-  intro i _
-  rw [kaehlerTwoMap_D_wedge R A B f (a i) (b i),
-    kaehlerTwoMap_D_wedge R B C g (f (a i)) (f (b i)),
-    kaehlerTwoMap_D_wedge R A C (g.comp f) (a i) (b i)]
-  rfl
+    kaehlerTwoMap R B C g (kaehlerTwoMap R A B f w) = kaehlerTwoMap R A C (g.comp f) w :=
+  kaehlerDegreeMap_comp R A B C f g 2 w
 
 theorem kaehlerTwoMap_canonicalTrace {n : Type u} [Fintype n]
     (f : A →ₐ[R] B) (T X : Matrix n n A) :
@@ -4232,7 +4230,7 @@ theorem deRhamOne_tracePotential {n : Type u} [Fintype n]
     deRhamOne R A b (kaehlerTracePotential R A T X) = kaehlerCanonicalTrace A R T X := by
   simp only [kaehlerTracePotential, deRhamOne_sum, deRhamOne_coordinate, kaehlerCanonicalTrace]
 
-/-- The de Rham differential into the actual exterior cube.
+/-- The de Rham differential into the exterior cube.
 `deRhamTwo_coordinate` and `deRhamTwo_unique` characterize it by its standard generator rule. -/
 def deRhamTwo (b : Module.Basis I A (KaehlerDifferential R A)) (w : KaehlerTwoForms A R) :
     ⋀[A]^3 (KaehlerDifferential R A) :=
@@ -4295,38 +4293,6 @@ theorem deRhamTwo_coordinate (b : Module.Basis I A (KaehlerDifferential R A)) (c
     Derivation.liftKaehlerDifferential_comp_D]
   ring
 
-
-theorem kaehlerDegree_expression (d : ℕ) (w : ⋀[A]^d (KaehlerDifferential R A)) :
-    ∃ (J : Type u) (_ : Fintype J) (c : J → A) (a : J → Fin d → A),
-      w = ∑ i, c i • exteriorPower.ιMulti A d (fun j => KaehlerDifferential.D R A (a i j)) := by
-  classical
-  have hs : Submodule.span A (Set.range (fun a : Fin d → A =>
-      exteriorPower.ιMulti A d (fun j => KaehlerDifferential.D R A (a j)))) = ⊤ := by
-    have h := exteriorPower.ιMulti_span_of_span A d (KaehlerDifferential R A)
-      (KaehlerDifferential.span_range_derivation R A)
-    rw [← top_le_iff] at h ⊢
-    apply h.trans
-    apply Submodule.span_mono
-    rintro _ ⟨v, hv, rfl⟩
-    have h : ∀ i, ∃ a, KaehlerDifferential.D R A a = v i := fun i => hv (Set.mem_range_self i)
-    choose a ha using h
-    exact ⟨a, congrArg (exteriorPower.ιMulti A d) (funext ha)⟩
-  have hw : w ∈ Submodule.span A (Set.range (fun a : Fin d → A =>
-      exteriorPower.ιMulti A d (fun j => KaehlerDifferential.D R A (a j)))) := by rw [hs]; trivial
-  obtain ⟨l, hl⟩ := Finsupp.mem_span_range_iff_exists_finsupp.mp hw
-  refine ⟨l.support, inferInstance, (fun i => l i), (fun i => i.val), ?_⟩
-  change w = ∑ i ∈ l.support.attach, l i.val • exteriorPower.ιMulti A d
-    (fun j => KaehlerDifferential.D R A (i.val j))
-  exact hl.symm.trans (Finset.sum_attach l.support (fun a : Fin d → A =>
-    l a • exteriorPower.ιMulti A d (fun j => KaehlerDifferential.D R A (a j)))).symm
-
-theorem kaehlerDegreeMap_comp (B C : Type u) [CommRing B] [CommRing C] [Algebra R B] [Algebra R C]
-    (f : A →ₐ[R] B) (g : B →ₐ[R] C) (d : ℕ) (w : ⋀[A]^d (KaehlerDifferential R A)) :
-    kaehlerDegreeMap R B C g d (kaehlerDegreeMap R A B f d w) =
-      kaehlerDegreeMap R A C (g.comp f) d w := by
-  obtain ⟨J, hJ, c, a, rfl⟩ := kaehlerDegree_expression R A d w
-  simp only [map_sum, map_smulₛₗ, kaehlerDegreeMap_D_wedge]
-  rfl
 
 theorem kaehlerDegreeMap_id (d : ℕ) (w : ⋀[A]^d (KaehlerDifferential R A)) :
     kaehlerDegreeMap R A A (AlgHom.id R A) d w = w := by
@@ -4467,11 +4433,6 @@ set_option backward.isDefEq.respectTransparency false
 universe u
 variable (R n : Type u) [CommRing R] [Fintype n] [DecidableEq n]
 
-omit [Fintype n] [DecidableEq n] in
-theorem kaehlerDegreeMap_two (A B : Type u) [CommRing A] [CommRing B] [Algebra R A] [Algebra R B]
-    (f : A →ₐ[R] B) (w : KaehlerTwoForms A R) :
-    kaehlerDegreeMap R A B f 2 w = kaehlerTwoMap R A B f w := rfl
-
 def orbitPrimeDifferentialBasis (p : maximalRankOpen R n) :
     Module.Basis (Fin (Fintype.card ((n × n) ⊕ (n × n))))
       (PrimeLocalRing (CoordinateRing R n) p.val)
@@ -4524,7 +4485,7 @@ def generalLinearDeRhamBasis :
   (localizedDifferentialBasis (R := R) (S := GeneralLinearRing R n)
     (Submonoid.powers (genericMatrix R n).det)).reindex (Fintype.equivFin _)
 
-/-- The actual Kähler one-form tr(J g⁻¹ dg) on GL. -/
+/-- The Kähler one-form tr(J g⁻¹ dg) on GL. -/
 def maurerCartanPotential : KaehlerDifferential R (GeneralLinearRing R n) :=
   kaehlerTracePotential R (GeneralLinearRing R n)
     (jordanCell * (generalLinearUnit R n).inv) (generalLinearUnit R n).val
@@ -4569,7 +4530,7 @@ theorem orbitKaehlerTwoForm_deRham_pullback (q : PrimeSpectrum (GeneralLinearRin
     (primeExteriorEquiv (CoordinateRing R n) R (orbitImagePrime R n q).val
       ((orbitKaehlerTwoForm R n).val (orbitImagePrime R n q)))
 
-theorem orbitKaehlerPullback_deRham_closed (q : PrimeSpectrum (GeneralLinearRing R n)) :
+theorem orbitKaehlerPullback_deRhamTwo_eq_zero (q : PrimeSpectrum (GeneralLinearRing R n)) :
     deRhamTwo R (PrimeLocalRing (GeneralLinearRing R n) q) (generalLinearPrimeDeRhamBasis R n q)
       (primeExteriorEquiv (GeneralLinearRing R n) R q ((orbitKaehlerPullback R n).val ⟨q, trivial⟩)) = 0 := by
   have h := congrArg (fun s => primeExteriorEquiv (GeneralLinearRing R n) R q (s.val ⟨q, trivial⟩))
@@ -4580,7 +4541,7 @@ theorem orbitKaehlerPullback_deRham_closed (q : PrimeSpectrum (GeneralLinearRing
     (generalLinearPrimeDeRhamBasis R n q) _ _
 
 /-- Closedness descends along conjugation by injectivity of pullback in exterior degree three. -/
-theorem orbitKaehlerTwoForm_closed_by_descent (p : maximalRankOpen R n) :
+theorem orbitKaehlerTwoForm_deRhamTwo_eq_zero (p : maximalRankOpen R n) :
     deRhamTwo R (PrimeLocalRing (CoordinateRing R n) p.val) (orbitPrimeDifferentialBasis R n p)
       (primeExteriorEquiv (CoordinateRing R n) R p.val ((orbitKaehlerTwoForm R n).val p)) = 0 := by
   let w := fun p : maximalRankOpen R n =>
@@ -4589,12 +4550,12 @@ theorem orbitKaehlerTwoForm_closed_by_descent (p : maximalRankOpen R n) :
   have h : w = (fun _ => 0) := orbitFormsPullback_injective R n 3 (by
       funext q
       dsimp only [w]
-      rw [map_zero, ← orbitKaehlerTwoForm_deRham_pullback, orbitKaehlerPullback_deRham_closed])
+      rw [map_zero, ← orbitKaehlerTwoForm_deRham_pullback, orbitKaehlerPullback_deRhamTwo_eq_zero])
   exact congrFun h p
 
 open CategoryTheory AlgebraicGeometry.StructureSheaf
 
-/-- Coordinates of the actual cell inclusion into the square-zero scheme. -/
+/-- Coordinates of the cell inclusion into the square-zero scheme. -/
 def cellOrbitCoordinates : CoordinateRing R n →ₐ[R] CellRing R n :=
   (cellChartEval R n).comp (toChartBase R n)
 
@@ -4640,8 +4601,8 @@ theorem cellOrbitCoordinates_mem_orbit (q : PrimeSpectrum (CellRing R n)) :
 
 set_option synthInstance.maxHeartbeats 100000 in
 set_option maxHeartbeats 800000 in
-/-- The constructed global two-form pulls back to zero along the actual cell inclusion. -/
-theorem cell_global_form_pullback_zero :
+/-- The constructed global two-form pulls back to zero along the cell inclusion. -/
+theorem orbitKaehlerTwoForm_cell_pullback :
     kaehlerSectionPullback R (CoordinateRing R n) (CellRing R n) (cellOrbitCoordinates R n)
       (maximalRankOpen R n) ⊤ (fun q _ => cellOrbitCoordinates_mem_orbit R n q)
       (orbitKaehlerTwoForm R n) = 0 := by

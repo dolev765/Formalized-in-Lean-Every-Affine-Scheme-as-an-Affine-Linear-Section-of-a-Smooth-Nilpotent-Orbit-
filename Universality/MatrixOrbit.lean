@@ -643,7 +643,7 @@ theorem orbit_linearized_iff {Z : Matrix (n ⊕ n) (n ⊕ n) R}
         X * (Z * Z) - (Z * Z) * X := by noncomm_ring
       _ = 0 := by simp [orbit_square_zero hZ]
 
-/-- The matrix `Z + ε D` over the actual ring of dual numbers. -/
+/-- The matrix `Z + ε D` over the ring of dual numbers. -/
 def firstOrderMatrix {K m : Type} [CommRing K] [Fintype m] [DecidableEq m]
     (Z D : Matrix m m K) : Matrix m m (DualNumber K) :=
   Matrix.dualNumberEquiv.symm ⟨Z, D⟩
@@ -695,7 +695,7 @@ theorem dualNumberRepresentationEquiv_natural {S T m : Type*}
     (F : DualNumber R →ₐ[R] Matrix n n S) (φ : Matrix n n S →ₐ[R] Matrix m m T) :
     (dualNumberRepresentationEquiv (φ.comp F)).val = φ (dualNumberRepresentationEquiv F).val := rfl
 
-/-- Polynomial coordinates have their actual relative dimension, using the
+/-- Polynomial coordinates have their relative dimension, using the
     presentation with these generators and no relations. -/
 theorem mvPolynomial_standardSmooth_dimension (R I : Type*) [CommRing R] [Fintype I] :
     Algebra.IsStandardSmoothOfRelativeDimension (Fintype.card I) R (MvPolynomial I R) := by

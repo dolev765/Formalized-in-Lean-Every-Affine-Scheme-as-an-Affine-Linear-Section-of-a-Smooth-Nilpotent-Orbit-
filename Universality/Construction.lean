@@ -45,7 +45,7 @@ def chartResidualLinear : Matrix (n ⊕ n) (n ⊕ n) S →ₗ[S]
     · change a • X.toBlocks₂₂ + a • X.toBlocks₁₁ = a • (X.toBlocks₂₂ + X.toBlocks₁₁)
       exact (smul_add _ _ _).symm
 
-/-- The fixed chart is the zero fiber of an actual affine map. -/
+/-- The fixed chart is the zero fiber of an affine map. -/
 def fixedChartAffine : Matrix (n ⊕ n) (n ⊕ n) S →ᵃ[S]
     (Matrix n n S × Matrix n n S) :=
   chartResidualLinear.toAffineMap + AffineMap.const S _ (-1, 0)
@@ -82,7 +82,7 @@ def OrbitSection (C : GateSystem R W G E)
     (Z : Matrix (Index W G ⊕ Index W G) (Index W G ⊕ Index W G) S) : Prop :=
   InFixedChart Z ∧ C.LinearSection Z.toBlocks₁₁ (-Z.toBlocks₂₁) ∧ InJordanOrbit Z
 
-/-- Actual ambient affine equations for the orbit realization. -/
+/-- Affine equations defining the orbit section. -/
 def orbitAffineConstraints (C : GateSystem R W G E) :
     Matrix (Index W G ⊕ Index W G) (Index W G ⊕ Index W G) S →ᵃ[S]
       ((Matrix (Index W G) (Index W G) S × Matrix (Index W G) (Index W G) S) ×
@@ -198,7 +198,7 @@ theorem assemble_map (C : GateSystem R W G E) (φ : S →ₐ[R] T) (w : W → S)
   · fin_cases i <;> fin_cases j <;> by_cases hgh : g = h <;>
       simp [assemble, Matrix.map_apply, Matrix.blockDiagonal_apply, gateBlock, hgh]
 
-/-- Literal equations in the independent matrix entries: affine rows plus B-A². -/
+/-- Equations in independent matrix entries: the affine rows and `B - A²`. -/
 def matrixPolynomials (C : GateSystem R W G E) :
     MatrixEquation W G E → MvPolynomial (MatrixCoord W G) R :=
   let A : Matrix (Index W G) (Index W G) (MvPolynomial (MatrixCoord W G) R) := (decode X).1
@@ -333,7 +333,7 @@ theorem circuitToMatrix_matrixToCircuit (C : GateSystem R W G E) :
     rw [Matrix.map_mul, hm, ← hb]
     rfl
 
-/-- The literal affine matrix-section quotient is the circuit coordinate algebra. -/
+/-- The affine matrix-section quotient is the circuit coordinate algebra. -/
 def matrixCoordinateAlgEquiv (C : GateSystem R W G E) :
     (MvPolynomial W R ⧸ equationIdeal C.polynomials) ≃ₐ[R]
       (MvPolynomial (MatrixCoord W G) R ⧸ equationIdeal C.matrixPolynomials) :=
@@ -455,7 +455,7 @@ theorem extractionPolynomial_eval (x : OrbitCoord W G → S)
         Matrix.toBlocks₁₁, Matrix.toBlocks₂₁]
   exact DFunLike.congr_fun h p
 
-/-- Literal equations in all entries of Z: fixed affine chart equations, followed
+/-- Equations in all entries of Z: fixed affine chart equations, followed
 by the compiler equations after the affine extraction (Z11,-Z21). -/
 def orbitPolynomials (C : GateSystem R W G E) :
     OrbitEquation W G E → MvPolynomial (OrbitCoord W G) R :=
@@ -506,7 +506,7 @@ theorem orbitPolynomials_satisfied_iff (C : GateSystem R W G E)
       rw [extractionPolynomial_eval]
       exact (C.matrixPolynomials_satisfied_iff (encode (orbitExtract x))).mpr hrest q
 
-/-- These literal polynomial equations are exactly the affine ambient constraints
+/-- These polynomial equations are exactly the affine ambient constraints
 together with square-zero, over every test algebra. -/
 theorem orbitPolynomials_affine_square (C : GateSystem R W G E)
     (x : OrbitCoord W G → S) :
@@ -535,7 +535,7 @@ theorem orbitUniversal_satisfies (C : GateSystem R W G E) :
           (orbitExtract (universalSolution C.orbitPolynomials)).1 :=
   (C.orbitPolynomials_satisfied_iff _).mp (universalSolution_satisfies _)
 
-/-- The literal closed subscheme is contained in the orbit on every test algebra,
+/-- The closed subscheme is contained in the orbit on every test algebra,
 including its universal, potentially nonreduced coordinate algebra. -/
 theorem orbitPolynomials_orbit_iff (C : GateSystem R W G E)
     (x : OrbitCoord W G → S) :
@@ -619,7 +619,7 @@ theorem matrixToOrbit_orbitToMatrix (C : GateSystem R W G E) :
   simp only [AlgHom.comp_apply, orbitToMatrix_generator, AlgHom.id_apply]
   exact congrFun (congrFun hm i) j
 
-/-- Literal ambient-Z coordinate reconstruction, not merely a point bijection. -/
+/-- The square-graph and orbit sections have isomorphic coordinate algebras. -/
 def orbitCoordinateAlgEquiv (C : GateSystem R W G E) :
     (MvPolynomial (MatrixCoord W G) R ⧸ equationIdeal C.matrixPolynomials) ≃ₐ[R]
       (MvPolynomial (OrbitCoord W G) R ⧸ equationIdeal C.orbitPolynomials) :=
@@ -628,7 +628,7 @@ def orbitCoordinateAlgEquiv (C : GateSystem R W G E) :
 
 end GateSystem
 
-/-- Every finitely presented algebra is an exact affine section in literal ambient
+/-- Every finitely presented algebra is an exact affine section in ambient
 square-zero matrix coordinates. The universal matrix lies in the fixed orbit chart. -/
 theorem finitePresentation_orbitSection
     (R A : Type u) [CommRing R] [CommRing A] [Algebra R A]
@@ -641,7 +641,7 @@ theorem finitePresentation_orbitSection
   obtain ⟨W, G, E, hW, hG, hE, dW, dG, C, hpos, ⟨e⟩⟩ := finitePresentation_matrixSection R A
   exact ⟨W, G, E, hW, hG, hE, dW, dG, C, hpos, ⟨e.trans C.orbitCoordinateAlgEquiv⟩⟩
 
-/-- Scheme-theoretic universality in the actual ambient endomorphism space. -/
+/-- Scheme-theoretic universality in the ambient endomorphism space. -/
 theorem finitePresentation_orbitSectionScheme
     (R A : Type u) [CommRing R] [CommRing A] [Algebra R A]
     [Algebra.FinitePresentation R A] :
@@ -747,7 +747,7 @@ theorem orbitAffinePolynomials_satisfied_iff {S : Type*} [CommRing S] [Algebra R
       simpa [wires, orbitExtract, orbitMatrix, Matrix.toBlocks₁₁, Matrix.toBlocks₂₁,
         sub_eq_zero, add_eq_zero_iff_eq_neg] using hg g
 
-/-- The actual scheme intersection ideal, with no passage to a radical. -/
+/-- The section ideal is the sum of the affine and square-zero ideals. -/
 theorem orbitSectionIdeal_eq (C : GateSystem R W G E) :
     equationIdeal C.orbitPolynomials = equationIdeal C.orbitAffinePolynomials ⊔
       matrixEntryIdeal (orbitMatrix (X : OrbitCoord W G → MvPolynomial (OrbitCoord W G) R) *
@@ -780,7 +780,7 @@ theorem orbitUniversal_cell (C : GateSystem R W G E) :
   rw [← hs]
   exact fixedChart_reconstruct _ C.orbitUniversal_satisfies.1
 
-/-- The actual morphism from the section scheme to affine cell coordinates. -/
+/-- The morphism from the section scheme to affine cell coordinates. -/
 def sectionToCell (C : GateSystem R W G E) :
     Spec (.of (MvPolynomial (OrbitCoord W G) R ⧸ equationIdeal C.orbitPolynomials)) ⟶
       Spec (.of (MvPolynomial (Index W G × Index W G) R)) :=
@@ -828,7 +828,7 @@ theorem sectionToCell_isClosedImmersion (C : GateSystem R W G E) :
     IsClosedImmersion C.sectionToCell :=
   IsClosedImmersion.spec_of_surjective _ C.sectionCellCoordinates_surjective
 
-/-- The actual factorization of the universal affine section into the smooth orbit scheme. -/
+/-- The factorization of the universal affine section into the smooth orbit scheme. -/
 def sectionToOrbit (C : GateSystem R W G E) :
     Spec (.of (MvPolynomial (OrbitCoord W G) R ⧸ equationIdeal C.orbitPolynomials)) ⟶
       SquareZeroGeometry.maximalRankScheme R (Index W G) :=
@@ -877,7 +877,7 @@ theorem affineEquation_totalDegree_le {V : Type u} (e : AffineEquation R W)
     exact (totalDegree_mul _ _).trans (by simpa [MvPolynomial.algebraMap_eq] using hw i)
 
 omit [Fintype G] in
-/-- Every advertised affine equation is a literal polynomial of total degree at most one. -/
+/-- The orbit-section equations have total degree at most one. -/
 theorem orbitAffinePolynomials_totalDegree (C : GateSystem R W G E)
     (q : OrbitAffineEquation W G E) : (C.orbitAffinePolynomials q).totalDegree ≤ 1 := by
   rcases subsingleton_or_nontrivial R with h | h
@@ -905,8 +905,7 @@ end GateSystem
 
 /-- Every finitely presented affine k-scheme is an exact affine-linear section
 of the closed affine Lagrangian cell in the smooth maximal square-zero orbit.
-The coordinate algebra is preserved, the embedding is an actual closed immersion,
-and the algebraic symplectic atlas and cell isotropy are proved on this same host. -/
+The isomorphism preserves the coordinate algebra and both section embeddings are closed. -/
 theorem lagrangian_squareZero_orbit_universality
     (k A : Type u) [Field k] [CommRing A] [Algebra k A]
     [Algebra.FinitePresentation k A] :
@@ -930,7 +929,7 @@ theorem lagrangian_squareZero_orbit_universality
       SmoothOfRelativeDimension (Fintype.card (GateSystem.Index W G) ^ 2)
         (Spec.map (CommRingCat.ofHom
           (algebraMap k (MvPolynomial (GateSystem.Index W G × GateSystem.Index W G) k)))) ∧
-      (∃ ω : GlobalSymplectic.AlgebraicSymplecticAtlas k (GateSystem.Index W G),
+      (∃ ω : GlobalSymplectic.OrbitSymplecticAtlas k (GateSystem.Index W G),
         SquareZeroGeometry.cellMorphism k (GateSystem.Index W G) =
           Spec.map (CommRingCat.ofHom
             (SquareZeroGeometry.cellChartEval k (GateSystem.Index W G)).toRingHom) ≫
@@ -975,7 +974,7 @@ theorem feasibility_reduction (C : GateSystem R W G E) :
     exact ⟨w.val, w.property⟩
 
 omit [DecidableEq W] [DecidableEq G] in
-/-- The compiler uses N=s+2m, and its literal ambient matrix has exactly 4N² entries. -/
+/-- The compiler uses N=s+2m, and its ambient matrix has exactly 4N² entries. -/
 theorem orbit_variable_count : Fintype.card (OrbitCoord W G) =
     4 * (Fintype.card W + 2 * Fintype.card G) ^ 2 := by
   simp only [OrbitCoord, Fintype.card_prod, Fintype.card_sum, Fintype.card_fin]
@@ -1036,7 +1035,7 @@ theorem polynomial_support_card_sum {V I : Type u} (s : Finset I) (p : I → MvP
     exact (polynomial_support_card_add _ _).trans (Nat.add_le_add_left ih _)
 
 omit [Fintype G] [Fintype E] in
-/-- Input rows retain their original coefficients literally. The indicator sum
+/-- Input rows retain their original coefficients. The indicator sum
 also describes cancellation without assuming distinct monomials. -/
 theorem orbitAffinePolynomials_input_coeff (C : GateSystem R W G E) (e : E)
     (d : OrbitCoord W G →₀ ℕ) :
@@ -1049,8 +1048,8 @@ theorem orbitAffinePolynomials_input_coeff (C : GateSystem R W G E) (e : E)
     Matrix.toBlocks₁₁, MvPolynomial.coeff_sum, MvPolynomial.coeff_X', MvPolynomial.coeff_C, eq_comm]
 
 omit [Fintype G] [Fintype E] in
-/-- Each literal affine output row has at most `|W|+2` nonzero monomials.
-This counts the actual polynomial after duplicate monomials cancel. -/
+/-- Each affine output row has at most `|W|+2` nonzero monomials.
+This counts the polynomial after duplicate monomials cancel. -/
 theorem orbitAffinePolynomials_support_card [Nontrivial R] (C : GateSystem R W G E)
     (q : OrbitAffineEquation W G E) :
     (C.orbitAffinePolynomials q).support.card ≤ Fintype.card W + 2 := by
@@ -1089,7 +1088,7 @@ theorem orbitAffinePolynomials_support_card [Nontrivial R] (C : GateSystem R W G
         (Sum.inr (Sum.inr (0,g)), Sum.inl (Sum.inr (0,g)))
     exact (Nat.add_le_add (hw _) hb).trans (by omega)
 
-/-- Polynomial sparse output-size bound for all literal affine rows. -/
+/-- Polynomial sparse output-size bound for all affine rows. -/
 theorem orbitAffinePolynomials_sparse_size [Nontrivial R] (C : GateSystem R W G E) :
     (∑ q, (C.orbitAffinePolynomials q).support.card) ≤
       (3 * (Fintype.card W + 2 * Fintype.card G) ^ 2 + Fintype.card E + Fintype.card G) *
@@ -1250,7 +1249,7 @@ abbrev OrbitRing (i : J) :=
   MvPolynomial (GateSystem.OrbitCoord (D.Wire i) (D.Gate i)) R ⧸
     equationIdeal (D.gates i).orbitPolynomials
 
-/-- The actual linear arrow on all four blocks of the full ambient matrix space. -/
+/-- The linear arrow on all four blocks of the full ambient matrix space. -/
 def ambientMap {i j} (α : i ⟶ j) : D.AmbientMatrix i S →ₗ[S] D.AmbientMatrix j S :=
   matrixBlockLift (D.matrixMap α)
 
@@ -1291,7 +1290,7 @@ theorem ambientMap_natural {T : Type u} [CommRing T] [Algebra R T]
   exact matrixBlockLift_map φ.toRingHom (D.matrixMap α) (D.matrixMap α)
     (fun A => GateSystem.matrixPullback_map φ.toRingHom _ _ A) Z
 
-/-- The restriction to the literal section coordinate rings. -/
+/-- The restriction to the section coordinate rings. -/
 def orbitMap {i j} (α : i ⟶ j) : D.OrbitRing j →ₐ[R] D.OrbitRing i :=
   solutionLift (D.gates j).orbitPolynomials
     (fun ij => D.ambientMap α
@@ -1434,7 +1433,7 @@ def orbitSchemeFunctor : J ⥤ Scheme :=
 def ambientSchemeFunctor : J ⥤ Scheme :=
   (D.ambientAlgebraFunctor ⋙ forget₂ (CommAlgCat R) CommRingCat).rightOp ⋙ Scheme.Spec
 
-/-- Actual commuting closed embeddings of section schemes into ambient affine spaces. -/
+/-- Closed embeddings of section schemes commute with the diagram maps. -/
 def sectionInclusion : D.orbitSchemeFunctor ⟶ D.ambientSchemeFunctor :=
   whiskerRight (whiskerRight D.quotientNatTrans (forget₂ (CommAlgCat R) CommRingCat)).rightOp Scheme.Spec
 
@@ -1472,7 +1471,7 @@ theorem ofAlgebraDiagramOrbitAlgEquiv_natural {i j} (α : i ⟶ j) :
     ← AlgHom.comp_assoc, D.gateOrbitAlgEquiv_natural, AlgHom.comp_assoc]
   rfl
 
-/-- An isomorphism of the entire original algebra diagram with its literal orbit sections. -/
+/-- An isomorphism of the entire original algebra diagram with its orbit sections. -/
 def ofAlgebraDiagramOrbitIso : F ≅ (ofAlgebraDiagram F P).orbitAlgebraFunctor :=
   NatIso.ofComponents (fun i => CommAlgCat.isoMk (ofAlgebraDiagramOrbitAlgEquiv F P i.unop)) (by
     intro i j α
@@ -1569,7 +1568,7 @@ theorem sectionToOrbit_squareZero (C : GateSystem R W G E) :
   apply (cancel_mono (SquareZeroGeometry.squareZeroClosedImmersion R (Index W G))).mp
   rw [Category.assoc, C.sectionToOrbit_ambient, C.sectionToSquareZero_ambient]
 
-/-- Literal fiber-product semantics of the affine section inside the square-zero scheme. -/
+/-- The affine section is a fiber product with the square-zero scheme. -/
 theorem section_squareZero_isPullback (C : GateSystem R W G E) :
     IsPullback C.sectionToAffine C.sectionToSquareZero C.affineInclusion
       (SquareZeroGeometry.squareZeroClosedImmersion R (Index W G)) :=
@@ -1596,7 +1595,7 @@ theorem sectionToOrbit_isPullback (C : GateSystem R W G E) :
   exact isPullback_restrict_mono C.sectionToAffine g U.ι C.affineInclusion
     (SquareZeroGeometry.squareZeroClosedImmersion R (Index W G)) h
 
-/-- It is also the literal fiber product with the closed Lagrangian cell. -/
+/-- The affine section is a fiber product with the Lagrangian cell. -/
 theorem sectionToCell_isPullback (C : GateSystem R W G E) :
     IsPullback C.sectionToAffine C.sectionToCell C.affineInclusion
       (SquareZeroGeometry.cellMorphism R (Index W G) ≫

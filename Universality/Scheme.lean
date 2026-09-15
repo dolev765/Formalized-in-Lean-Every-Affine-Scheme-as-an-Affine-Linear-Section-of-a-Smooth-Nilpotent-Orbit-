@@ -23,7 +23,7 @@ noncomputable section
 universe u
 open CategoryTheory Limits AlgebraicGeometry
 
-/-- The sum of two ideals is the literal pushout of their quotient rings. -/
+/-- Quotienting by `I + J` gives the pushout of the quotient maps. -/
 theorem quotient_sup_isPushout (R : Type*) [CommRing R] (I J : Ideal R) :
     IsPushout (CommRingCat.ofHom (Ideal.Quotient.mk I))
       (CommRingCat.ofHom (Ideal.Quotient.mk J))
@@ -378,7 +378,7 @@ theorem quotientAlgHom_ext {V Q S : Type*} [CommRing S] [Algebra R S]
 namespace GateSystem
 variable {W G E : Type*} [Fintype W]
 
-/-- Literal polynomial equations of the affine rows and multiplication gates. -/
+/-- Polynomial equations of the affine rows and multiplication gates. -/
 def polynomials (C : GateSystem R W G E) : E ⊕ G → MvPolynomial W R :=
   Sum.elim (fun e => (C.equations e).eval X)
     (fun g => X (C.output g) - X (C.left g) * X (C.right g))
@@ -506,7 +506,7 @@ def maximalRankOpen : (squareZeroScheme R n).Opens :=
   ⨆ (r : n → n ⊕ n) (c : n → n ⊕ n),
     PrimeSpectrum.basicOpen ((universalMatrix R n).submatrix r c).det
 
-/-- The maximal-rank square-zero scheme, defined as an actual open subscheme. -/
+/-- The maximal-rank square-zero scheme, defined as an open subscheme. -/
 def maximalRankScheme : Scheme := (maximalRankOpen R n).toScheme
 
 /-- The identity-block chart is contained in this principal open. -/
@@ -725,7 +725,7 @@ theorem toChart_fromChart : (toChart R n).comp (fromChart R n) = AlgHom.id R _ :
   | inl ij => exact congrFun (congrFun hA ij.1) ij.2
   | inr ij => exact congrFun (congrFun hT ij.1) ij.2
 
-/-- The actual principal square-zero chart has the free localized coordinate
+/-- The principal square-zero chart has the free localized coordinate
 algebra `R[A,T,1/det(T)]`, with explicit two-sided inverse maps. -/
 def chartAlgEquiv : LocalCoordinateRing R n ≃ₐ[R] ChartRing R n :=
   AlgEquiv.ofAlgHom (toChart R n) (fromChart R n)
@@ -767,7 +767,7 @@ theorem topRight_structure_factor :
     CommRingCat.ofHom_comp, Spec.map_comp, ← Category.assoc, hfac]
   rfl
 
-/-- Smoothness holds for the canonical projection of the actual principal open. -/
+/-- Smoothness holds for the canonical projection of the principal open. -/
 theorem topRightOpen_smooth : Smooth ((topRightOpen R n).ι ≫ structureMap R n) := by
   rw [← topRight_structure_factor]
   letI := localizedSquareScheme_smooth R n
@@ -958,7 +958,7 @@ def orbitChartIso (e : (n ⊕ n) ≃ (n ⊕ n)) :
     (orbitChartOpen R n e).toScheme ≅ Spec (.of (ChartRing R n)) :=
   orbitChartToPermutationIso R n e ≪≫ permutationChartIso R n e
 
-/-- An actual open cover of the actual maximal-rank square-zero scheme. -/
+/-- An open cover of the maximal-rank square-zero scheme. -/
 def orbitOpenCover : (maximalRankScheme R n).OpenCover :=
   (maximalRankScheme R n).openCoverOfIsOpenCover (orbitChartOpen R n) (orbitChart_cover R n)
 
@@ -1069,7 +1069,7 @@ theorem cellChartEval_T : (chartT R n).map (cellChartEval R n) = 1 := by
   ext i j
   simp [chartT, cellChartEval]
 
-/-- The actual morphism of the closed affine cell into the maximal-rank scheme. -/
+/-- The morphism of the closed affine cell into the maximal-rank scheme. -/
 def cellMorphism : Spec (.of (MvPolynomial (n × n) R)) ⟶ maximalRankScheme R n :=
   Spec.map (CommRingCat.ofHom (cellChartEval R n).toRingHom) ≫
     (topRightChartIso R n).inv ≫
@@ -1265,7 +1265,7 @@ end FieldIrreducibility
 
 end SquareZeroGeometry
 
-/-- A finite polynomial presentation with its actual surjective algebra map. -/
+/-- A finite polynomial presentation with its surjective algebra map. -/
 structure FinitePolynomialPresentation (R A : Type u) [CommRing R] [CommRing A] [Algebra R A] where
   Variable : Type u
   Relation : Type u
@@ -1336,7 +1336,7 @@ variable {J : Type u} [Category J] {R : Type u} [CommRing R]
 variable (F : Jᵒᵖ ⥤ CommAlgCat.{u} R)
 variable (P : ∀ j : J, FinitePolynomialPresentation R (F.obj (op j)))
 
-/-- Lift the image of every generator along an actual arrow of the algebra diagram. -/
+/-- Lift the image of every generator along an arrow of the algebra diagram. -/
 def polynomialArrow {i j : J} (α : i ⟶ j) (v : (P j).Variable) :
     MvPolynomial (P i).Variable R :=
   ((P i).surjective ((F.map α.op).hom ((P j).quotientMap (X v)))).choose
@@ -1544,7 +1544,7 @@ def copiedMap {i j : J} (α : i ⟶ j) :
 
 end CircuitDiagram
 
-/-- Objectwise algebra reconstruction for an arbitrary finite diagram of actual algebras. -/
+/-- Objectwise algebra reconstruction for an arbitrary finite diagram of algebras. -/
 def ofAlgebraDiagramCoordinateAlgEquiv (i : J) :
     (F.obj (op i)) ≃ₐ[R]
       (MvPolynomial ((ofAlgebraDiagram F P).Wire i) R ⧸
@@ -1807,7 +1807,7 @@ theorem conjugationToSquareZero_mem_maximalRank (p : generalLinearScheme R n) :
   rw [hz] at he
   exact not_isUnit_zero he
 
-/-- The actual morphism `GL(2n) → O`, not merely a map of field-valued points. -/
+/-- The conjugation morphism `GL(2n) → O`. -/
 def orbitProjection : generalLinearScheme R n ⟶ maximalRankScheme R n := by
   change generalLinearScheme R n ⟶ (maximalRankOpen R n).toScheme
   exact IsOpenImmersion.lift (maximalRankOpen R n).ι (conjugationToSquareZero R n) (by
@@ -1846,7 +1846,7 @@ theorem orbitImage_isSheaf :
   Presieve.isSheaf_iso _ (asIso (Subfunctor.toRange (yoneda.map (maximalRankOpen R n).ι)))
     (GrothendieckTopology.Subcanonical.isSheaf_of_isRepresentable _)
 
-/-- Zariski sheafification of the conjugation image is represented by the actual orbit scheme. -/
+/-- Zariski sheafification of the conjugation image is represented by the orbit scheme. -/
 theorem conjugationImage_sheafify :
     (conjugationImage R n).sheafify Scheme.zariskiTopology = orbitImage R n := by
   apply le_antisymm
@@ -2004,7 +2004,7 @@ theorem conjugateJordan_eq_iff {S : Type*} [CommRing S]
 
 /-! ### The stabilizer and its cosets -/
 
-/-- The stabilizer as a subgroup of the actual general linear group. -/
+/-- The stabilizer as a subgroup of the general linear group. -/
 def jordanStabilizer (S : Type*) [CommRing S] :
     Subgroup (Matrix (n ⊕ n) (n ⊕ n) S)ˣ where
   carrier := {g | g.val * jordanCell = jordanCell * g.val}
@@ -2169,7 +2169,7 @@ theorem conjugationSheafIso_ι :
   unfold conjugationSheafIso
   simp only [Iso.trans_hom, Category.assoc, Iso.symm_hom, hι, Subfunctor.homOfLe_ι]
 
-/-- On every representative the quotient map is the actual conjugation morphism. -/
+/-- On every representative the quotient map is the conjugation morphism. -/
 theorem homogeneousQuotientMap_mk {T : Scheme.{u}} (f : T ⟶ generalLinearScheme R n) :
     (homogeneousQuotientMap R n).app (op T) (Quotient.mk _ f) = f ≫ orbitProjection R n := by
   apply (cancel_mono (maximalRankOpen R n).ι).mp
@@ -2544,7 +2544,7 @@ theorem orbitProjection_surjective : Surjective (orbitProjection R n) := by
   refine ⟨((orbitChartIso R n e).hom ≫ chartSection R n e) ⟨x, he⟩, ?_⟩
   exact congrArg (fun f => f ⟨x, he⟩) (orbitChartSection R n e)
 
-/-- Faithful flatness of the actual quotient morphism, expressed as flat and surjective. -/
+/-- Faithful flatness of the quotient morphism, expressed as flat and surjective. -/
 theorem orbitProjection_faithfullyFlat : Flat (orbitProjection R n) ∧ Surjective (orbitProjection R n) := by
   letI := orbitProjection_smooth R n
   exact ⟨inferInstance, orbitProjection_surjective R n⟩

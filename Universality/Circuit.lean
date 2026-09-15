@@ -665,7 +665,7 @@ abbrev Coordinate (Name : J → Type w) (i : J) := Σ j : J, (i ⟶ j) × Name j
 
 variable (S : Type s) [CommRing S] (Name : J → Type w)
 
-/-- The arrow map is literally a linear coordinate projection by precomposition. -/
+/-- The arrow map is a linear coordinate projection by precomposition. -/
 def projection {i j : J} (α : i ⟶ j) :
     (Coordinate Name i → S) →ₗ[S] (Coordinate Name j → S) where
   toFun x c := x ⟨c.1, (α ≫ c.2.1, c.2.2)⟩
@@ -682,7 +682,7 @@ def projection {i j : J} (α : i ⟶ j) :
   ext x ⟨l, γ, c⟩
   simp [projection, Category.assoc]
 
-/-- An actual functor on the whole ambient modules, not only on the embedded solution sets. -/
+/-- The ambient modules and their coordinate projections form a functor. -/
 def ambientFunctor : J ⥤ ModuleCat S where
   obj i := ModuleCat.of S (Coordinate Name i → S)
   map α := ModuleCat.ofHom (projection S Name α)
@@ -802,7 +802,7 @@ def solutionEquiv (P : PolynomialCoordinates R V C) (f : Q → MvPolynomial V R)
   left_inv x := Subtype.ext (P.evaluate_recover x.val)
   right_inv w := Subtype.ext (((P.equations_iff f _).mp w.property).2)
 
-/-- Apply the actual matrix-square compiler to the enlarged finite polynomial system. -/
+/-- Apply the matrix-square compiler to the enlarged finite polynomial system. -/
 noncomputable def compiledSolutionEquiv [Fintype C] [DecidableEq C] [Fintype Q] [DecidableEq R]
     (P : PolynomialCoordinates R V C) (f : Q → MvPolynomial V R) :=
   (P.solutionEquiv (S := S) f).trans
@@ -1099,7 +1099,7 @@ theorem matrixMap_assemble_square {i j} (α : i ⟶ j) (w : D.Wire i → S) :
   exact GateSystem.matrixPullback_assemble_square (D.gates i) (D.gates j)
     (D.wireMap α) (D.gateMap α) (fun _ => rfl) (fun _ => rfl) w
 
-/-- No stabilization: each object is exactly its finite matrix-square section. -/
+/-- Objectwise equivalence with the matrix-square sections. -/
 def matrixSolutionEquiv (h : D.Laws (S := S)) (i : J) := by
   classical
   exact (D.solutionEquiv h i).trans (D.gates i).solutionEquiv

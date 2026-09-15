@@ -19,7 +19,7 @@ theorem affine_orbit_universality (k A : Type u)
       (Q : Type u) (_ : Fintype Q)
       (affineEquations : Q → MvPolynomial ((n ⊕ n) × (n ⊕ n)) k)
       (I : Ideal (MvPolynomial ((n ⊕ n) × (n ⊕ n)) k))
-      (coordinateIso : A ≃ₐ[k] (MvPolynomial ((n ⊕ n) × (n ⊕ n)) k ⧸ I)),
+      (coordinateEquiv : A ≃ₐ[k] (MvPolynomial ((n ⊕ n) × (n ⊕ n)) k ⧸ I)),
 
       -- 2. Ambient space, affine section, orbit, and cell
       let ambient := Spec (.of (MvPolynomial ((n ⊕ n) × (n ⊕ n)) k))
@@ -51,7 +51,7 @@ theorem affine_orbit_universality (k A : Type u)
         (∀ q, (affineEquations q).totalDegree ≤ 1) ∧
         I = equationIdeal affineEquations ⊔ squareZeroRelations ∧
 
-        schemeIso = Scheme.Spec.mapIso coordinateIso.symm.toRingEquiv.toCommRingCatIso.op ∧
+        schemeIso = Scheme.Spec.mapIso coordinateEquiv.symm.toRingEquiv.toCommRingCatIso.op ∧
         toAffine ≫ affineInclusion = Spec.map (CommRingCat.ofHom (Ideal.Quotient.mk I)) ∧
 
         -- 4. Both scheme-theoretic intersections and their embeddings
@@ -77,7 +77,7 @@ theorem affine_orbit_universality (k A : Type u)
         SmoothOfRelativeDimension (Fintype.card n ^ 2)
           (Spec.map (CommRingCat.ofHom (algebraMap k (MvPolynomial (n × n) k)))) ∧
 
-        -- 6. Actual charts, overlaps, and tangent-space dualities
+      -- 6. Charts, overlaps, and tangent-space dualities
         ∃ (charts : ∀ e : Equiv.Perm (n ⊕ n),
               (permutationOpen k n e).toScheme ≅ Spec (.of (ChartRing k n)))
 
@@ -182,26 +182,29 @@ theorem affine_orbit_universality (k A : Type u)
   obtain ⟨r⟩ := AffineOrbitRealization.nonempty k A
   refine ⟨r.Index, inferInstance, inferInstance, r.Equation, inferInstance,
     r.affineEquations, r.sectionIdeal,
-    r.coordinateIso, r.sectionToAffine, r.sectionToOrbit,
-    r.sectionToCell, r.schemeIso, r.positive_size, r.affine_degree, ?_,
-    r.schemeIso_from_coordinate, r.sectionToAmbient,
-    r.affine_closed, maximalRankScheme_isImmersion k _,
+    r.coordinateEquiv, r.sectionToAffine, r.sectionToOrbit,
+    r.sectionToCell, r.schemeIso, r.card_index_pos, r.affineEquations_totalDegree, ?_,
+    r.schemeIso_eq, r.sectionToAffine_comp,
+    r.affineInclusion_isClosedImmersion, maximalRankScheme_isImmersion k _,
     r.orbit_intersection, r.cell_intersection, r.sectionToOrbit_eq,
-    r.section_closed_in_orbit, r.section_closed_in_cell, r.cell_closed_in_orbit,
+    r.sectionToOrbit_isClosedImmersion, r.sectionToCell_isClosedImmersion,
+    cellMorphism_isClosedImmersion k r.Index,
     (fun K _ _ M => inJordanOrbit_iff_square_zero_rank M),
-    r.orbit_smooth_dimension, r.orbit_irreducible, r.cell_smooth_dimension, ?_⟩
+    maximalRankScheme_dimension k r.Index,
+    (fun h => by letI := h.toField; exact maximalRankScheme_irreducible r.Index),
+    cellSource_dimension k r.Index, ?_⟩
 
   -- Exact ideal equality
   · simpa only [squareZeroIdeal, genericMatrix] using r.ideal_eq
 
   -- Symplectic atlas and Lagrangian cell
-  · refine ⟨r.symplectic.chartIso, r.symplectic.overlapIso, r.symplectic.form,
-      (fun _ => localFormPerfect k r.Index), r.symplectic.covers, r.symplectic.chart_embedding,
-      r.symplectic.overlap_embedding, r.symplectic.local_formula,
-      (fun e D => r.symplectic.alternating e D),
-      (fun e D E F => r.symplectic.closed e D E F),
-      r.symplectic.perfect_form, r.symplectic.compatible, r.cell_chart_factorization,
-      r.cell_isotropic, ?_⟩
+  · let ω := orbitSymplecticAtlas k r.Index
+    refine ⟨ω.chartIso, ω.overlapIso, ω.form,
+      (fun _ => localFormPerfect k r.Index), ω.covers, ω.chart_embedding,
+      ω.overlap_embedding, ω.form_eq,
+      (fun e D => ω.alternating e D), (fun e D E F => ω.closed e D E F),
+      ω.perfect_form, ω.compatible, ω.cellMorphism_factors_identity,
+      cell_pullback_form_zero k r.Index, ?_⟩
     letI := cellChartAlgebra k r.Index
     letI : IsScalarTower k (ChartRing k r.Index) (CellRing k r.Index) :=
       IsScalarTower.of_algHom (cellChartEval k r.Index)
@@ -209,11 +212,11 @@ theorem affine_orbit_universality (k A : Type u)
       specializeChartDerivation_surjective k r.Index, ?_, cellDifferential_selfOrthogonal k r.Index,
       (fun e => ⟨orbitTangentChartIso k r.Index e, orbitTangentChartIso_over k r.Index e⟩),
       orbitKaehlerTwoForm k r.Index, orbitKaehlerTwoForm_chart k r.Index,
-      orbitKaehlerTwoForm_closed k r.Index, orbitKaehlerTwoForm_closed_by_descent k r.Index,
+      orbitKaehlerTwoForm_isClosed k r.Index, orbitKaehlerTwoForm_deRhamTwo_eq_zero k r.Index,
       orbitKaehlerPullback_eq_deRham k r.Index, cellMorphism_squareZero k r.Index,
-      cell_global_form_pullback_zero k r.Index, orbitKaehlerTwoForm_perfect k r.Index⟩
+      orbitKaehlerTwoForm_cell_pullback k r.Index, orbitKaehlerTwoForm_perfect k r.Index⟩
     intro D E
-    rw [r.symplectic.local_formula]
+    rw [ω.form_eq]
     exact cellOrbitForm_specialize k r.Index D E
 
 /-- The polynomial compiler uses exactly one gate per multiplication node and size `s + 2m`. -/
@@ -263,7 +266,7 @@ theorem homogeneous_space_quotient (k n : Type u)
     (∀ T : Scheme.{u}, Function.Injective
       (fun f : T ⟶ stabilizerScheme k n => f ≫ stabilizerInclusion k n)) ∧
 
-    -- The actual general linear scheme and its usual cosets on every test scheme
+    -- The general linear scheme and its usual cosets on every test scheme
     (∀ T : Scheme.{u}, Function.Bijective (fun g : T ⟶ generalLinearScheme k n =>
       (generalLinearBase k n g, pointConjugator k n g))) ∧
     (∀ T : Scheme.{u}, Nonempty ((homogeneousCosets k n).obj (Opposite.op T) ≃
@@ -275,7 +278,7 @@ theorem homogeneous_space_quotient (k n : Type u)
           (QuotientGroup.mk (pointConjugator k n g) :
             (Matrix (n ⊕ n) (n ⊕ n) Γ(T, ⊤))ˣ ⧸ jordanStabilizer n Γ(T, ⊤)))) ∧
 
-    -- The quotient map is induced by the actual conjugation morphism
+    -- The quotient map is induced by the conjugation morphism
     orbitProjection k n ≫ (maximalRankOpen k n).ι = conjugationToSquareZero k n ∧
     (∀ (T : Scheme.{u}) (g : T ⟶ generalLinearScheme k n),
       (homogeneousQuotientMap k n).app (Opposite.op T) (Quotient.mk _ g) =
@@ -284,7 +287,7 @@ theorem homogeneous_space_quotient (k n : Type u)
       (universalMatrix k n).map (affineCoordinates (g ≫ conjugationToSquareZero k n)) =
         (pointConjugator k n g).val * jordanCell * (pointConjugator k n g).inv) ∧
 
-    -- Smoothness and faithful flatness of the actual quotient projection
+    -- Smoothness and faithful flatness of the quotient projection
     SmoothOfRelativeDimension (2 * Fintype.card n ^ 2) (orbitProjection k n) ∧
     Flat (orbitProjection k n) ∧ Surjective (orbitProjection k n) ∧
 
@@ -313,7 +316,7 @@ theorem homogeneous_space_quotient (k n : Type u)
 theorem orbit_differential_geometry (k n : Type u)
     [CommRing k] [Fintype n] [DecidableEq n] :
 
-    -- Spec of the symmetric algebra of the actual relative Kähler module
+    -- Spec of the symmetric algebra of the relative Kähler module
     orbitTangentScheme k n = pullback
       (Spec.map (CommRingCat.ofHom (algebraMap (CoordinateRing k n)
         (SymmetricAlgebra (CoordinateRing k n) (KaehlerDifferential k (CoordinateRing k n))))))
@@ -350,7 +353,7 @@ theorem orbit_differential_geometry (k n : Type u)
        pullback.fst (tangentProjection k (CoordinateRing k n)) (maximalRankOpen k n).ι =
          tangentSchemeMap k (CoordinateRing k n) (GeneralLinearRing k n)) ∧
 
-    -- A linear section of the commutator map on the actual orbit chart
+    -- A linear section of the commutator map on the orbit chart
     (chartTangentProjection k n).comp (chartTangentSection k n) = LinearMap.id ∧
     (∀ X : Matrix (n ⊕ n) (n ⊕ n) (ChartRing k n),
       derivMatrix (chartTangentProjection k n X) (generalChart (chartA k n) (chartT k n)) =
@@ -393,7 +396,7 @@ theorem orbit_differential_geometry (k n : Type u)
 theorem orbit_global_symplectic_form (k n : Type u)
     [CommRing k] [Fintype n] [DecidableEq n] :
 
-    -- The associated sheaf of the actual exterior square agrees with the regular-expression sheaf
+    -- The associated sheaf of the exterior square agrees with the regular-expression sheaf
     Nonempty (( (maximalRankOpen k n).isOpenEmbedding.sheafPullback (Type u)).obj
         (structureSheafInType (CommRingCat.of (CoordinateRing k n))
           (⋀[CoordinateRing k n]^2 (KaehlerDifferential k (CoordinateRing k n)))) ≅
@@ -409,7 +412,7 @@ theorem orbit_global_symplectic_form (k n : Type u)
       (exteriorSheafEvaluation (CoordinateRing k n) k).hom.app
         (Opposite.op (maximalRankOpen k n)) ω = orbitGlobalTwoForm k n ∧
 
-      -- The wedge formula on the actual localizations and the actual chart maps
+      -- The wedge formula on the localizations and the chart maps
       (∀ (p : maximalRankOpen k n) (e : Equiv.Perm (n ⊕ n)) (he : p.val ∈ permutationOpen k n e),
         primeExteriorEquiv (CoordinateRing k n) k p.val (ω.val p) =
           kaehlerCanonicalTrace (PrimeLocalRing (CoordinateRing k n) p.val) k
@@ -419,14 +422,14 @@ theorem orbit_global_symplectic_form (k n : Type u)
         (primeChartEvaluation k n p.val e he).comp (permutationChartEmbedding k n e) =
           IsScalarTower.toAlgHom k (CoordinateRing k n) (PrimeLocalRing (CoordinateRing k n) p.val)) ∧
 
-      -- Closedness and an isomorphism from derivations to actual Kähler one-forms
+      -- Closedness and an isomorphism from derivations to Kähler one-forms
       (∀ p, (exteriorGermEvaluation (CoordinateRing k n) k p.val (ω.val p)).IsAlt) ∧
       (∀ p, IsClosed (exteriorGermEvaluation (CoordinateRing k n) k p.val (ω.val p))) ∧
       (∀ p : maximalRankOpen k n,
         deRhamTwo k (PrimeLocalRing (CoordinateRing k n) p.val) (orbitPrimeDifferentialBasis k n p)
           (primeExteriorEquiv (CoordinateRing k n) k p.val (ω.val p)) = 0) ∧
 
-      -- Equality of actual sheaf sections: π*ω = -d tr(J g⁻¹dg)
+      -- Equality of sheaf sections: π*ω = -d tr(J g⁻¹dg)
       kaehlerSectionPullback k (CoordinateRing k n) (GeneralLinearRing k n) (orbitCoordinateMap k n)
         (maximalRankOpen k n) ⊤ (fun q _ => conjugationToSquareZero_mem_maximalRank k n q) ω =
           StructureSheaf.toOpenₗ (GeneralLinearRing k n) (KaehlerTwoForms (GeneralLinearRing k n) k) ⊤
@@ -439,7 +442,7 @@ theorem orbit_global_symplectic_form (k n : Type u)
         ∀ D E, E.liftKaehlerDifferential (contraction D) =
           exteriorGermEvaluation (CoordinateRing k n) k p.val (ω.val p) D E) ∧
 
-      -- The global section itself pulls back to zero along the actual cell inclusion
+      -- The global section itself pulls back to zero along the cell inclusion
       cellMorphism k n ≫ (maximalRankOpen k n).ι =
         Spec.map (CommRingCat.ofHom (cellOrbitCoordinates k n).toRingHom) ∧
       kaehlerSectionPullback k (CoordinateRing k n) (CellRing k n) (cellOrbitCoordinates k n)
@@ -453,9 +456,9 @@ theorem orbit_global_symplectic_form (k n : Type u)
   refine ⟨⟨orbitExteriorSheafComparison k n⟩, primeTwoEvaluation_injective k n,
     orbitKaehlerTwoForm k n, permutationOpen_cover k n, orbitKaehlerTwoForm_evaluation k n,
     orbitKaehlerTwoForm_chart k n, (fun p e he => primeChartEvaluation_over k n p.val e he),
-    ?_, orbitKaehlerTwoForm_closed k n, orbitKaehlerTwoForm_closed_by_descent k n,
+    ?_, orbitKaehlerTwoForm_isClosed k n, orbitKaehlerTwoForm_deRhamTwo_eq_zero k n,
     orbitKaehlerPullback_eq_deRham k n, ?_, cellMorphism_squareZero k n,
-    cell_global_form_pullback_zero k n, cell_kaehler_form_pullback_zero k n⟩
+    orbitKaehlerTwoForm_cell_pullback k n, kaehlerCanonicalTrace_cell_pullback k n⟩
   · intro p
     rw [orbitKaehlerTwoForm_evaluation_point]
     exact orbitGlobalTwoForm_alternating k n p
