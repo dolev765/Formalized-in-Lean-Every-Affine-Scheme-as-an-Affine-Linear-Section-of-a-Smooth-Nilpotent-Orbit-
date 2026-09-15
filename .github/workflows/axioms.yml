@@ -24,7 +24,7 @@ jobs:
           test: false
           lint: false
           use-mathlib-cache: true
-      - name: Audit the main theorem's axioms
+      - name: Audit universality and quotient axioms
         shell: bash
         run: |
           set -o pipefail

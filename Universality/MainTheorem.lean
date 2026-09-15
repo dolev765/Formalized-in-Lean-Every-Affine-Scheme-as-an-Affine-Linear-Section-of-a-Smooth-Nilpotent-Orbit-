@@ -189,13 +189,19 @@ theorem homogeneous_space_quotient (k n : Type u)
         ∃ P Q : Matrix n n S, IsUnit P ∧ g.val = Matrix.fromBlocks P Q 0 P) ∧
 
     -- The actual general linear scheme and its usual cosets on every test scheme
-    (∀ T : Scheme.{u}, Nonempty ((T ⟶ generalLinearScheme k n) ≃
-      (k →+* Γ(T, ⊤)) × (Matrix (n ⊕ n) (n ⊕ n) Γ(T, ⊤))ˣ)) ∧
+    (∀ T : Scheme.{u}, Function.Bijective (fun g : T ⟶ generalLinearScheme k n =>
+      (generalLinearBase k n g, pointConjugator k n g))) ∧
     (∀ T : Scheme.{u}, Nonempty ((homogeneousCosets k n).obj (Opposite.op T) ≃
       (k →+* Γ(T, ⊤)) ×
         ((Matrix (n ⊕ n) (n ⊕ n) Γ(T, ⊤))ˣ ⧸ jordanStabilizer n Γ(T, ⊤)))) ∧
+    (∀ (T : Scheme.{u}) (g : T ⟶ generalLinearScheme k n),
+      homogeneousCosetsEquiv k n T (Quotient.mk _ g) =
+        (generalLinearBase k n g,
+          (QuotientGroup.mk (pointConjugator k n g) :
+            (Matrix (n ⊕ n) (n ⊕ n) Γ(T, ⊤))ˣ ⧸ jordanStabilizer n Γ(T, ⊤)))) ∧
 
     -- The quotient map is induced by the actual conjugation morphism
+    orbitProjection k n ≫ (maximalRankOpen k n).ι = conjugationToSquareZero k n ∧
     (∀ (T : Scheme.{u}) (g : T ⟶ generalLinearScheme k n),
       (homogeneousQuotientMap k n).app (Opposite.op T) (Quotient.mk _ g) =
         g ≫ orbitProjection k n) ∧
@@ -210,8 +216,9 @@ theorem homogeneous_space_quotient (k n : Type u)
       ∃! g : yoneda.obj (maximalRankScheme k n) ⟶ F,
         homogeneousQuotientMap k n ≫ g = f) :=
   ⟨(fun S _ g => mem_jordanStabilizer_iff n g),
-    (fun T => ⟨generalLinearHomEquiv k n T⟩),
+    (fun T => (generalLinearHomEquiv k n T).bijective),
     (fun T => ⟨homogeneousCosetsEquiv k n T⟩),
+    (fun T g => homogeneousCosetsEquiv_mk k n g), orbitProjection_ι k n,
     (fun T g => homogeneousQuotientMap_mk k n g),
     (fun T g => conjugation_coordinates k n g),
     orbit_fppf_isSheaf k n, homogeneousQuotient_fppf_universal k n⟩

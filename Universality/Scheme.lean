@@ -2093,6 +2093,12 @@ def homogeneousCosetsEquiv (T : Scheme.{u}) :
       (p.1, (QuotientGroup.mk p.2 : _ ⧸ jordanStabilizer n Γ(T, ⊤))))
       ((generalLinearHomEquiv R n T).apply_symm_apply ⟨b, g⟩)
 
+theorem homogeneousCosetsEquiv_mk {T : Scheme.{u}} (g : T ⟶ generalLinearScheme R n) :
+    homogeneousCosetsEquiv R n T (Quotient.mk _ g) =
+      (generalLinearBase R n g,
+        (QuotientGroup.mk (pointConjugator R n g) :
+          (Matrix (n ⊕ n) (n ⊕ n) Γ(T, ⊤))ˣ ⧸ jordanStabilizer n Γ(T, ⊤))) := rfl
+
 instance cosetsToConjugationImage_isIso : IsIso (cosetsToConjugationImage R n) := by
   rw [NatTrans.isIso_iff_isIso_app]
   intro T
