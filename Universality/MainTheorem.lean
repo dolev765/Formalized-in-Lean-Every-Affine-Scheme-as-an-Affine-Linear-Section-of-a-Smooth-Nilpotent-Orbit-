@@ -9,7 +9,7 @@ open GlobalSymplectic AffineForms
 universe u
 
 /-- Exact affine-linear universality over any commutative ring, with a relative symplectic orbit. -/
-theorem affine_orbit_universality_explicit (k A : Type u)
+theorem affine_orbit_universality (k A : Type u)
     [CommRing k] [CommRing A] [Algebra k A] [Algebra.FinitePresentation k A] :
 
     -- 1. Finite equations and exact coordinate algebra
@@ -128,7 +128,7 @@ theorem affine_orbit_universality_explicit (k A : Type u)
             ((chartT k n).map (cellChartEval k n)) ((chartA k n).map (cellChartEval k n)) = 0 := by
 
   -- Common witnesses for all eight parts
-  obtain ⟨r⟩ := affine_orbit_universality k A
+  obtain ⟨r⟩ := AffineOrbitRealization.nonempty k A
   refine ⟨r.Index, inferInstance, inferInstance, r.Equation, inferInstance,
     r.affineEquations, r.sectionIdeal,
     r.coordinateIso, r.sectionToAffine, r.sectionToOrbit,
@@ -158,9 +158,9 @@ end Universality
 open Lean Elab Command in
 run_cmd do
   let allowed : Array Name := #[``propext, ``Classical.choice, ``Quot.sound]
-  let axioms ← collectAxioms ``Universality.affine_orbit_universality_explicit
+  let axioms ← collectAxioms ``Universality.affine_orbit_universality
   let unexpected := axioms.filter fun name => !allowed.contains name
   unless unexpected.isEmpty do
     throwError "Main theorem depends on unapproved axioms: {unexpected}"
 
-#print axioms Universality.affine_orbit_universality_explicit
+#print axioms Universality.affine_orbit_universality

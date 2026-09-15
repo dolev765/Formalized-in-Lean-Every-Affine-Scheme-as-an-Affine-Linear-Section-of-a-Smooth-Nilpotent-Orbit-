@@ -4,7 +4,7 @@ import Universality.Construction
 # Affine-linear realizations of finitely presented algebras
 
 `AffineOrbitRealization` records equations and scheme maps independently of their construction.
-`affine_orbit_universality` constructs a realization over every commutative base ring.
+`AffineOrbitRealization.nonempty` constructs a realization over every commutative base ring.
 -/
 
 namespace Universality
@@ -108,7 +108,7 @@ theorem cell_isotropic : AffineForms.canonicalTrace (R := k)
 end AffineOrbitRealization
 
 /-- Every finitely presented algebra admits an exact affine-linear orbit realization. -/
-theorem affine_orbit_universality (k A : Type u) [CommRing k] [CommRing A] [Algebra k A]
+theorem AffineOrbitRealization.nonempty (k A : Type u) [CommRing k] [CommRing A] [Algebra k A]
     [Algebra.FinitePresentation k A] : Nonempty (AffineOrbitRealization k A) := by
   obtain ⟨W, G, E, hW, hG, hE, dW, dG, C, hpos, ⟨e⟩⟩ := finitePresentation_orbitSection k A
   exact ⟨{
